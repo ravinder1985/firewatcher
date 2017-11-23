@@ -1,0 +1,27 @@
+{
+  "duration": 10,
+  "port": "8080",
+  "commands": [
+    {
+      "name": "space",
+      "type": "service",
+      "command": "sh",
+      "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "2"],
+      "labels": {"type": "custom"}
+    },
+    {
+      "name": "haproxy",
+      "type": "service",
+      "command": "sh",
+      "options": ["/Users/harvindersingh/shell_script/haproxy.sh", "1"],
+      "labels": {"type": "nrpe"}
+    },
+    {
+      "name": "nginx",
+      "type": "service",
+      "command": "sh",
+      "options": ["/Users/harvindersingh/shell_script/nginx.sh", "0"],
+      "labels": {"type": "custom"}
+    }
+  ]
+}
