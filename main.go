@@ -18,27 +18,29 @@ var jsonConfig system.JSON
 func metrics(w http.ResponseWriter, r *http.Request) {
 	var d, s string
 	for _, commands := range jsonConfig.Commands {
+		metric := "Untyped"
+		if commands.Lables.Metric != "" {
+			metric = commands.Lables.Metric
+		}
+
 		name := commands.Name + "_" + commands.Type
 		s = "# HELP " + name + " check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN\n"
-		s = s + "# TYPE " + name + " Untyped"
+		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
 		//name := commands.Name
 
 		switch strings.TrimSpace(string(data.Result[commands.Name])) {
 		case "0":
-			fmt.Println("OK")
 			d += name + `{type="` + commands.Lables.Type + `",status="OK"} ` + string(data.Result[commands.Name]) + ``
 		case "1":
-			fmt.Println("WARNING")
 			d += name + `{type="` + commands.Lables.Type + `",status="WARNING"} ` + string(data.Result[commands.Name]) + ``
 		case "2":
-			fmt.Println("CRITICAL")
 			d += name + `{type="` + commands.Lables.Type + `",status="CRITICAL"} ` + string(data.Result[commands.Name]) + ``
 		default:
-			fmt.Println("UNKNOWN")
 			d += name + `{type="` + commands.Lables.Type + `",status="UNKNOWN"} ` + string(data.Result[commands.Name]) + ``
 		}
 	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, d)
 }
 

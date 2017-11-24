@@ -26,12 +26,13 @@ type Commands struct {
 	Type    string   `json:"type"`
 	Command string   `json:"command"`
 	Options []string `json:"options"`
-	Lables  Lables   `json:"lables"`
+	Lables  Lables   `json:"labels"`
 }
 
 // Lables has leveles for commands
 type Lables struct {
-	Type string `json:"type"`
+	Type   string `json:"type"`
+	Metric string `json:"metric"`
 }
 
 // Data would hole the data
@@ -74,6 +75,7 @@ func ConfigCommand(jsonConfig JSON, data *Data) {
 			if (err) != nil {
 				log.Fatal(err)
 			}
+			//fmt.Println(strings.TrimSpace(string(out)))
 			data.Result[name] = out
 			//fmt.Printf("%s: %s", name, out)
 		}
