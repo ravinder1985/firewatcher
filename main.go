@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/firewatcher/system"
@@ -48,24 +48,24 @@ func home(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<a href=/metrics>View Matrics</a>")
 }
 
-func parseConfig() {
-	pwd, _ := os.Getwd()
-	var filename = "/config.json"
-	source, err := ioutil.ReadFile(pwd + filename)
-	//fmt.Printf("Value: %s", source)
+func parseConfig(ConfigFile string) {
+	// pwd, _ := os.Getwd()
+	// var filename = "/config.json"
+	// source, err := ioutil.ReadFile(pwd + filename)
+	source, err := ioutil.ReadFile(ConfigFile)
+
+	// fmt.Printf("Value: %s", source)
 	if err != nil {
 		log.Fatal(err)
 	}
 	json.Unmarshal(source, &jsonConfig)
-	//
-	// fmt.Println(jsonConfig.Duration)
-	// for _, commands := range jsonConfig.Commands {
-	// 	fmt.Println(commands.Name)
-	// }
 }
 
 func main() {
-	parseConfig()
+	// Default config file name is config.json
+	ConfigFile := flag.String("config", "config.json", "a string")
+	flag.Parse()
+	parseConfig(*ConfigFile)
 	go system.Poll(&data, jsonConfig)
 	http.HandleFunc("/", home)
 	http.HandleFunc("/metrics", metrics)
