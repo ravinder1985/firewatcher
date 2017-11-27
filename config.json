@@ -7,14 +7,14 @@
       "type": "service",
       "command": "sh",
       "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "2"],
-      "labels": {"type": "custom","metric": "Untyped"}
+      "labels": {"type": "custom","metric": "Gauge"}
     },
     {
       "name": "haproxy",
       "type": "service",
       "command": "sh",
       "options": ["/Users/harvindersingh/shell_script/haproxy.sh", "1"],
-      "labels": {"type": "nrpe","metric": "Untyped"}
+      "labels": {"type": "nrpe","metric": "Gauge"}
     },
     {
       "name": "nginx",
