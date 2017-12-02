@@ -46,10 +46,11 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		}
 
 		name := commands.Name + "_" + commands.Type
-		s = "\n# HELP " + name + " check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN\n"
+		s = "# HELP " + name + " check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
 		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"} ` + data.Result[commands.Name] + ``
+		d += "\n"
 		//name := commands.Name
 
 		// switch strings.TrimSpace(string(data.Result[commands.Name])) {
