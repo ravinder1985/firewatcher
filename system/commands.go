@@ -21,6 +21,7 @@ type Commands struct {
 	Command string   `json:"command"`
 	Options []string `json:"options"`
 	Lables  Lables   `json:"labels"`
+	Help    string   `json:"help"`
 }
 
 // Lables has leveles for commands

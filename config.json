@@ -7,21 +7,24 @@
       "type": "service",
       "command": "sh",
       "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "2"],
-      "labels": {"type": "custom","metric": "Gauge"}
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
       "name": "haproxy",
       "type": "service",
       "command": "sh",
       "options": ["/Users/harvindersingh/shell_script/haproxy.sh", "1"],
-      "labels": {"type": "nrpe","metric": "Gauge"}
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
       "name": "nginx",
       "type": "service",
       "command": "sh",
       "options": ["/Users/harvindersingh/shell_script/nginx.sh", "0"],
-      "labels": {"type": "custom","metric": "Gauge"}
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "Performance result"
     }
   ]
 }

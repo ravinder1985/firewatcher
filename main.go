@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/firewatcher/system"
 )
@@ -39,6 +40,7 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 	jsonConfig := ConfigObject.jsonConfig
 	data := ConfigObject.data
 	var d, s string
+	var status string
 	for _, commands := range jsonConfig.Commands {
 		metric := "Untyped"
 		if commands.Lables.Metric != "" {
@@ -46,11 +48,29 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		}
 
 		name := commands.Name + "_" + commands.Type
-		s = "# HELP " + name + " check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN\n"
+		s = "# HELP " + name + " " + commands.Help + "\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
-		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"} ` + data.Result[commands.Name] + ``
+		commandresult := data.Result[commands.Name+"Result"]
+		results := strings.Split(commandresult, "\n")
+		tag := ""
+		// status could be 0, 1 ,2 or 3 in case of monitoring
+		status = data.Result[commands.Name]
+		for _, result := range results {
+			commandoutput := strings.Split(result, ":")
+			if len(commandoutput) == 2 {
+				if strings.ToUpper(commandoutput[0]) != "RESULT" {
+					tag += ","
+					tag += commandoutput[0] + `="` + strings.TrimSpace(commandoutput[1]) + `"`
+				} else {
+					status = strings.TrimSpace(commandoutput[1])
+				}
+			}
+		}
+
+		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + status + ``
 		d += "\n"
+
 		//name := commands.Name
 
 		// switch strings.TrimSpace(string(data.Result[commands.Name])) {
@@ -65,7 +85,8 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		// }
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, d)
+	//fmt.Fprintf(w, d)
+	w.Write([]byte(d))
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
