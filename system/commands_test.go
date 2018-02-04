@@ -25,8 +25,8 @@ func TestPollSuccess(t *testing.T) {
 		Port:     "8080",
 		Commands: []Commands{
 			{
-				Name:    "test",
-				Type:    "test",
+				Name:    "TestPollSuccess",
+				Type:    "service",
 				Command: "echo",
 				Options: []string{"success"},
 				Lables: Lables{
@@ -38,8 +38,9 @@ func TestPollSuccess(t *testing.T) {
 	}
 	var jsonConfig ConfigTest
 	Poll(&jsonConfig.data, jsonConfigTest, false)
-	if jsonConfig.data.Result["test"] != "0" && jsonConfig.data.Result["testResult"] != "success" {
-		t.Errorf("should be :%d, instead of :%s", 0, jsonConfig.data.Result["test"])
+	println(jsonConfig.data.Result)
+	if jsonConfig.data.Result["TestPollSuccess"] != "0" && jsonConfig.data.Result["TestPollSuccessResult"] != "success" {
+		t.Errorf("should be :%d, instead of :%s", 0, jsonConfig.data.Result["TestPollSuccess"])
 	}
 }
 func TestExternalCommandSuccess(t *testing.T) {
@@ -50,7 +51,7 @@ func TestExternalCommandSuccess(t *testing.T) {
 		Commands: []Commands{
 			{
 				Name:    "test",
-				Type:    "test",
+				Type:    "service",
 				Command: "echo",
 				Options: []string{"success"},
 				Lables: Lables{
@@ -67,6 +68,57 @@ func TestExternalCommandSuccess(t *testing.T) {
 	}
 }
 
+func TestExternalCommandConcurrencySuccess(t *testing.T) {
+	//Mock object for testing
+	jsonConfigTest = JSON{
+		Duration: 10,
+		Port:     "8080",
+		Commands: []Commands{
+			{
+				Name:    "test",
+				Type:    "service",
+				Command: "echo",
+				Options: []string{"success"},
+				Lables: Lables{
+					Type:   "test",
+					Metric: "Untyped",
+				},
+			},
+		},
+	}
+	var data ReturnStruct
+	ExternalCommandConcurrency(jsonConfigTest, &data)
+	if data.Result["test"] != "0" {
+		t.Errorf("should be :%d, instead of :%s", 0, data.Result["test"])
+	}
+}
+
+func TestExternalCommandSuccessWithUnique(t *testing.T) {
+	//Mock object for testing
+	jsonConfigTest = JSON{
+		Duration: 10,
+		Port:     "8080",
+		Commands: []Commands{
+			{
+				Name:    "test",
+				Type:    "service",
+				Command: "echo",
+				Unique:  "uniqueValue",
+				Options: []string{"success"},
+				Lables: Lables{
+					Type:   "test",
+					Metric: "Untyped",
+				},
+			},
+		},
+	}
+	var data ReturnStruct
+	ExternalCommand(jsonConfigTest, &data)
+	if data.Result["testuniqueValue"] != "0" {
+		t.Errorf("should be :%d, instead of :%s", 0, data.Result["testuniqueValue"])
+	}
+}
+
 func TestExternalCommandFailed(t *testing.T) {
 	//Mock object for testing
 	jsonConfigTest = JSON{
@@ -75,7 +127,7 @@ func TestExternalCommandFailed(t *testing.T) {
 		Commands: []Commands{
 			{
 				Name:    "test",
-				Type:    "test",
+				Type:    "service",
 				Command: "sh",
 				Options: []string{"exit", "7"},
 				Lables: Lables{
@@ -87,6 +139,31 @@ func TestExternalCommandFailed(t *testing.T) {
 	}
 	var data ReturnStruct
 	ExternalCommand(jsonConfigTest, &data)
+	if data.Result["test"] != "7" {
+		t.Errorf("should be :%d, instead of :%s", 0, data.Result["test"])
+	}
+}
+
+func TestExternalCommandConcurrencyFailed(t *testing.T) {
+	//Mock object for testing
+	jsonConfigTest = JSON{
+		Duration: 10,
+		Port:     "8080",
+		Commands: []Commands{
+			{
+				Name:    "test",
+				Type:    "service",
+				Command: "sh",
+				Options: []string{"exit", "7"},
+				Lables: Lables{
+					Type:   "test",
+					Metric: "Untyped",
+				},
+			},
+		},
+	}
+	var data ReturnStruct
+	ExternalCommandConcurrency(jsonConfigTest, &data)
 	if data.Result["test"] != "7" {
 		t.Errorf("should be :%d, instead of :%s", 0, data.Result["test"])
 	}

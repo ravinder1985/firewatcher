@@ -6,6 +6,7 @@
       "name": "space",
       "type": "service",
       "command": "sh",
+      "unique": "2",
       "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "2"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
@@ -19,10 +20,40 @@
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
+      "name": "space",
+      "type": "service",
+      "command": "sh",
+      "unique": "1",
+      "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "1"],
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
+    },
+    {
       "name": "nginx",
       "type": "service",
       "command": "sh",
+      "unique": "nginx",
       "options": ["/Users/harvindersingh/shell_script/nginx.sh", "0"],
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "Performance result"
+    }
+    ,
+    {
+      "name": "daemon_check",
+      "type": "service",
+      "command": "sh",
+      "unique": "nginx",
+      "options": ["/Users/harvindersingh/shell_script/daemon_check.sh", "nginx"],
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "Performance result"
+    }
+    ,
+    {
+      "name": "daemon_check",
+      "type": "service",
+      "command": "sh",
+      "unique": "haproxy",
+      "options": ["/Users/harvindersingh/shell_script/daemon_check.sh", "haproxy"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "Performance result"
     }

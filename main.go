@@ -28,20 +28,43 @@ type Config struct {
 }
 
 // ReadFile method to read config file
-func (Config) ReadFile(fileName string) ([]byte, error) {
+func (*Config) ReadFile(fileName string) ([]byte, error) {
 	//source, err := ioutil.ReadFile(fileName)
 	return ioutil.ReadFile(fileName)
 }
+
+// // Set function testing
+// func (ds *Config) Set(key string, value string) {
+// 	ds.data.Lock()
+// 	defer ds.data.Unlock()
+// 	ds.data.Result[key] = value
+// }
+//
+// func (ds *Config) unlock() {
+// 	ds.data.Unlock()
+// 	log.Println("Unlock the cache data")
+// }
+//
+// // Get function testing
+// func (ds *Config) Get() map[string]string {
+// 	ds.data.Lock()
+// 	log.Println("Lock the cache data")
+// 	defer ds.unlock()
+// 	return ds.data.Result
+// }
 
 // ConfigObject keep the configs and data in it
 var ConfigObject Config
 
 func metrics(w http.ResponseWriter, r *http.Request) {
 	jsonConfig := ConfigObject.jsonConfig
-	data := ConfigObject.data
+	monitoringResult := ConfigObject.data.Get()
+	log.Println("Data in memory: ", monitoringResult)
 	var d, s string
-	var status string
+	//var serviceStatus string
 	for _, commands := range jsonConfig.Commands {
+		unique := commands.Unique
+		saveas := commands.Name + unique
 		metric := "Untyped"
 		if commands.Lables.Metric != "" {
 			metric = commands.Lables.Metric
@@ -51,26 +74,30 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		s = "# HELP " + name + " " + commands.Help + "\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
-		commandresult := data.Result[commands.Name+"Result"]
+		commandresult := monitoringResult[saveas+"Result"]
 		results := strings.Split(commandresult, "\n")
 		tag := ""
+		if unique != "" {
+			tag = `,unique="` + unique + `"`
+		}
+
+		//fmt.Println(data.Result)
 		// status could be 0, 1 ,2 or 3 in case of monitoring
-		status = data.Result[commands.Name]
+		serviceStatus := monitoringResult[saveas]
 		for _, result := range results {
-			commandoutput := strings.Split(result, ":")
-			if len(commandoutput) == 2 {
-				if strings.ToUpper(commandoutput[0]) != "RESULT" {
+			commandOutput := strings.Split(result, ":")
+			if len(commandOutput) == 2 {
+				if strings.ToUpper(commandOutput[0]) != "RESULT" {
 					tag += ","
-					tag += commandoutput[0] + `="` + strings.TrimSpace(commandoutput[1]) + `"`
+					tag += commandOutput[0] + `="` + strings.TrimSpace(commandOutput[1]) + `"`
 				} else {
-					status = strings.TrimSpace(commandoutput[1])
+					serviceStatus = strings.TrimSpace(commandOutput[1])
 				}
 			}
 		}
 
-		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + status + ``
+		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + serviceStatus + ``
 		d += "\n"
-
 		//name := commands.Name
 
 		// switch strings.TrimSpace(string(data.Result[commands.Name])) {
@@ -111,7 +138,7 @@ func main() {
 	filename := flag.String("config", "config.json", "a string")
 	flag.Parse()
 	var err error
-	ConfigObject.jsonConfig, err = parseConfig(*filename, ConfigObject)
+	ConfigObject.jsonConfig, err = parseConfig(*filename, &ConfigObject)
 	if err != nil {
 		log.Fatal(err)
 	}
