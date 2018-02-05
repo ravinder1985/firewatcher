@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -36,10 +37,10 @@ type Lables struct {
 // ReturnStruct would hold the data
 type ReturnStruct struct {
 	sync.Mutex
+	Read   uint64
+	Write  uint64
 	Result map[string]string
 }
-
-var jsonConfig JSON
 
 // channel to control execution
 var done = make(chan bool)
@@ -51,6 +52,7 @@ func Sum(x int, y int) int {
 
 // Set values in cache
 func (cache *ReturnStruct) Set(key string, value string) {
+	atomic.AddUint64(&cache.Write, 1)
 	cache.Lock()
 	defer cache.unlock()
 	cache.Result[key] = value
@@ -62,28 +64,29 @@ func (cache *ReturnStruct) unlock() {
 
 // Get data from cache
 func (cache *ReturnStruct) Get() map[string]string {
+	atomic.AddUint64(&cache.Read, 1)
 	cache.Lock()
 	defer cache.unlock()
 	return cache.Result
 }
 
 // Poll would parse configs and run them every interval.
-func Poll(data *ReturnStruct, jsonConfig JSON, forever bool) {
+func Poll(cache *ReturnStruct, jsonConfig JSON, forever bool) {
 	duration := jsonConfig.Duration
-	ExternalCommandConcurrency(jsonConfig, data)
+	ExternalCommandConcurrency(jsonConfig, cache)
 	if forever == true {
 		for {
 			<-time.After(time.Duration(duration) * time.Second)
-			log.Println("Starting check after")
-			ExternalCommandConcurrency(jsonConfig, data)
+			log.Println("------ Starting check after: ", duration, "second ------")
+			ExternalCommandConcurrency(jsonConfig, cache)
 		}
 	}
 }
 
 // ExternalCommand Run command from config file
-func ExternalCommand(jsonConfig JSON, data *ReturnStruct) {
-	if data.Result == nil {
-		data.Result = make(map[string]string, 1)
+func ExternalCommand(jsonConfig JSON, cache *ReturnStruct) {
+	if cache.Result == nil {
+		cache.Result = make(map[string]string, 1)
 	}
 	for _, commands := range jsonConfig.Commands {
 		name := commands.Name
@@ -96,29 +99,33 @@ func ExternalCommand(jsonConfig JSON, data *ReturnStruct) {
 		cmd.Stdout = &out
 		if err := cmd.Run(); err != nil {
 			exitCode := string(err.Error())
-			data.Result[saveas] = string(exitCode[len(exitCode)-1])
+			cache.Result[saveas] = string(exitCode[len(exitCode)-1])
 		} else {
-			data.Result[saveas] = "0"
+			cache.Result[saveas] = "0"
 		}
 
-		data.Result[saveas+"Result"] = strings.TrimSpace(out.String())
+		cache.Result[saveas+"Result"] = strings.TrimSpace(out.String())
 	}
 }
 
 // ExternalCommandConcurrency Run command from config file
-func ExternalCommandConcurrency(jsonConfig JSON, data *ReturnStruct) {
-	if data.Result == nil {
-		data.Result = make(map[string]string, 1)
+func ExternalCommandConcurrency(jsonConfig JSON, cache *ReturnStruct) {
+	if cache.Result == nil {
+		cache.Result = make(map[string]string, 1)
 	}
+	counter := 0
 	for _, commands := range jsonConfig.Commands {
+		counter++
 		log.Println("Check command: " + commands.Name + "_" + commands.Type)
-		go executeCommand(commands, data)
+		go executeCommand(commands, cache, counter)
 	}
+	log.Println("Running Threads: ", counter)
 	// need to block for at least for one process since testing was fauling otherwise
 	<-done
 }
 
-func executeCommand(commands Commands, data *ReturnStruct) {
+func executeCommand(commands Commands, cache *ReturnStruct, id int) {
+	log.Println("------ Thread id: ", id, " Started ------")
 	name := commands.Name
 	command := commands.Command
 	options := commands.Options
@@ -130,12 +137,13 @@ func executeCommand(commands Commands, data *ReturnStruct) {
 	if err := cmd.Run(); err != nil {
 		exitCode := string(err.Error())
 		//data.Result[saveas] = string(exitCode[len(exitCode)-1])
-		data.Set(saveas, string(exitCode[len(exitCode)-1]))
+		cache.Set(saveas, string(exitCode[len(exitCode)-1]))
 	} else {
-		data.Set(saveas, "0")
+		cache.Set(saveas, "0")
 		//data.Result[saveas] = "0"
 	}
-	data.Set(saveas+"Result", strings.TrimSpace(out.String()))
+	cache.Set(saveas+"Result", strings.TrimSpace(out.String()))
 	//data.Result[saveas+"Result"] = strings.TrimSpace(out.String())
+	log.Println("------ Thread id: ", id, " Completed ------")
 	done <- true
 }

@@ -8,13 +8,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/firewatcher/system"
 )
-
-//var data system.Data
-var data system.ReturnStruct
-var jsonConfig system.JSON
 
 // ReadConfig would handle io operation
 type ReadConfig interface {
@@ -23,7 +20,7 @@ type ReadConfig interface {
 
 // Config structure is to store data and configs
 type Config struct {
-	data       system.ReturnStruct
+	cache      system.ReturnStruct
 	jsonConfig system.JSON
 }
 
@@ -33,32 +30,12 @@ func (*Config) ReadFile(fileName string) ([]byte, error) {
 	return ioutil.ReadFile(fileName)
 }
 
-// // Set function testing
-// func (ds *Config) Set(key string, value string) {
-// 	ds.data.Lock()
-// 	defer ds.data.Unlock()
-// 	ds.data.Result[key] = value
-// }
-//
-// func (ds *Config) unlock() {
-// 	ds.data.Unlock()
-// 	log.Println("Unlock the cache data")
-// }
-//
-// // Get function testing
-// func (ds *Config) Get() map[string]string {
-// 	ds.data.Lock()
-// 	log.Println("Lock the cache data")
-// 	defer ds.unlock()
-// 	return ds.data.Result
-// }
-
 // ConfigObject keep the configs and data in it
 var ConfigObject Config
 
 func metrics(w http.ResponseWriter, r *http.Request) {
 	jsonConfig := ConfigObject.jsonConfig
-	monitoringResult := ConfigObject.data.Get()
+	monitoringResult := ConfigObject.cache.Get()
 	log.Println("Data in memory: ", monitoringResult)
 	var d, s string
 	//var serviceStatus string
@@ -117,6 +94,10 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
+	read := atomic.LoadUint64(&ConfigObject.cache.Read)
+	fmt.Fprintf(w, "<h1>read operations: %d</h1>", read)
+	write := atomic.LoadUint64(&ConfigObject.cache.Write)
+	fmt.Fprintf(w, "<h1>write operations: %d</h1>", write)
 	fmt.Fprintf(w, "<a href=/metrics>View Matrics</a>")
 }
 
@@ -124,13 +105,13 @@ func parseConfig(ConfigFile string, config ReadConfig) (system.JSON, error) {
 	// pwd, _ := os.Getwd()
 	// var filename = "/config.json"
 	// source, err := ioutil.ReadFile(pwd + filename)
-	var data system.JSON
+	var JSONdata system.JSON
 	source, err := config.ReadFile(ConfigFile)
 	if err != nil {
-		return data, err
+		return JSONdata, err
 	}
-	json.Unmarshal(source, &data)
-	return data, nil
+	json.Unmarshal(source, &JSONdata)
+	return JSONdata, nil
 }
 
 func main() {
@@ -143,7 +124,7 @@ func main() {
 		log.Fatal(err)
 	}
 	forever := true
-	go system.Poll(&ConfigObject.data, ConfigObject.jsonConfig, forever)
+	go system.Poll(&ConfigObject.cache, ConfigObject.jsonConfig, forever)
 	http.HandleFunc("/", home)
 	http.HandleFunc("/metrics", metrics)
 	http.ListenAndServe(":"+ConfigObject.jsonConfig.Port, nil)
