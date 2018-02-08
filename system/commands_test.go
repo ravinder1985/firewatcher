@@ -37,10 +37,11 @@ func TestPollSuccess(t *testing.T) {
 		},
 	}
 	var jsonConfig ConfigTest
+	jsonConfig.data.InitializeMemory()
 	Poll(&jsonConfig.data, jsonConfigTest, false)
-	println(jsonConfig.data.Result)
-	if jsonConfig.data.Result["TestPollSuccess"] != "0" && jsonConfig.data.Result["TestPollSuccessResult"] != "success" {
-		t.Errorf("should be :%d, instead of :%s", 0, jsonConfig.data.Result["TestPollSuccess"])
+	result := jsonConfig.data.Get()
+	if result["TestPollSuccess"] != "0" && result["TestPollSuccessResult"] != "success" {
+		t.Errorf("should be :%d, instead of :%s", 0, result["TestPollSuccess"])
 	}
 }
 func TestExternalCommandSuccess(t *testing.T) {
@@ -87,9 +88,12 @@ func TestExternalCommandConcurrencySuccess(t *testing.T) {
 		},
 	}
 	var data ReturnStruct
+	data.InitializeMemory()
+	//data.SetThreadWait(len(jsonConfigTest.Commands))
 	ExternalCommandConcurrency(jsonConfigTest, &data)
-	if data.Result["test"] != "0" {
-		t.Errorf("should be :%d, instead of :%s", 0, data.Result["test"])
+	result := data.Get()
+	if result["test"] != "0" {
+		t.Errorf("should be :%d, instead of :%s", 0, result["test"])
 	}
 }
 
@@ -163,8 +167,15 @@ func TestExternalCommandConcurrencyFailed(t *testing.T) {
 		},
 	}
 	var data ReturnStruct
+	// if data.Get() == nil {
+	// 	log.Println("Set memory for cache.Result map")
+	// 	data.Result = make(map[string]string, 1)
+	// }
+	data.InitializeMemory()
+	//data.SetThreadWait(len(jsonConfigTest.Commands))
 	ExternalCommandConcurrency(jsonConfigTest, &data)
-	if data.Result["test"] != "7" {
-		t.Errorf("should be :%d, instead of :%s", 0, data.Result["test"])
+	result := data.Get()
+	if result["test"] != "7" {
+		t.Errorf("should be :%d, instead of :%s", 0, result["test"])
 	}
 }

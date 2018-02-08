@@ -37,24 +37,37 @@ type Lables struct {
 // ReturnStruct would hold the data
 type ReturnStruct struct {
 	sync.Mutex
+	TW     sync.WaitGroup
 	Read   uint64
 	Write  uint64
 	Result map[string]string
 }
-
-// channel to control execution
-var done = make(chan bool)
 
 // Sum to add numbers
 func Sum(x int, y int) int {
 	return x + y
 }
 
-// Set values in cache
-func (cache *ReturnStruct) Set(key string, value string) {
-	atomic.AddUint64(&cache.Write, 1)
+// InitializeMemory for the cache
+func (cache *ReturnStruct) InitializeMemory() {
 	cache.Lock()
 	defer cache.unlock()
+	if cache.Result == nil {
+		log.Println("Initialize memory for the cache")
+		cache.Result = make(map[string]string, 1)
+	}
+}
+
+// SetThreadWait values in cache
+func (cache *ReturnStruct) SetThreadWait(number int) {
+	cache.TW.Add(number)
+}
+
+// Set values in cache
+func (cache *ReturnStruct) Set(key string, value string) {
+	cache.Lock()
+	defer cache.unlock()
+	//time.Sleep(500 * time.Millisecond)
 	cache.Result[key] = value
 }
 
@@ -73,6 +86,7 @@ func (cache *ReturnStruct) Get() map[string]string {
 // Poll would parse configs and run them every interval.
 func Poll(cache *ReturnStruct, jsonConfig JSON, forever bool) {
 	duration := jsonConfig.Duration
+
 	ExternalCommandConcurrency(jsonConfig, cache)
 	if forever == true {
 		for {
@@ -110,40 +124,36 @@ func ExternalCommand(jsonConfig JSON, cache *ReturnStruct) {
 
 // ExternalCommandConcurrency Run command from config file
 func ExternalCommandConcurrency(jsonConfig JSON, cache *ReturnStruct) {
-	if cache.Result == nil {
-		cache.Result = make(map[string]string, 1)
-	}
 	counter := 0
+	// Set maximum number of threads to wait
+	cache.SetThreadWait(len(jsonConfig.Commands))
 	for _, commands := range jsonConfig.Commands {
 		counter++
-		log.Println("Check command: " + commands.Name + "_" + commands.Type)
 		go executeCommand(commands, cache, counter)
 	}
 	log.Println("Running Threads: ", counter)
-	// need to block for at least for one process since testing was fauling otherwise
-	<-done
+	cache.TW.Wait()
+	log.Println("All Running Threads Completed: ", counter)
 }
 
 func executeCommand(commands Commands, cache *ReturnStruct, id int) {
-	log.Println("------ Thread id: ", id, " Started ------")
+	defer cache.TW.Done()
 	name := commands.Name
 	command := commands.Command
 	options := commands.Options
 	unique := commands.Unique
 	saveas := name + unique
+	log.Println("------ Thread id: ", id, " Started: ", options, " ------")
 	cmd := exec.Command(command, options...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		exitCode := string(err.Error())
-		//data.Result[saveas] = string(exitCode[len(exitCode)-1])
 		cache.Set(saveas, string(exitCode[len(exitCode)-1]))
 	} else {
 		cache.Set(saveas, "0")
-		//data.Result[saveas] = "0"
 	}
 	cache.Set(saveas+"Result", strings.TrimSpace(out.String()))
-	//data.Result[saveas+"Result"] = strings.TrimSpace(out.String())
-	log.Println("------ Thread id: ", id, " Completed ------")
-	done <- true
+	atomic.AddUint64(&cache.Write, 1)
+	log.Println("------ Thread id: ", id, " Completed: ", options, " ------")
 }

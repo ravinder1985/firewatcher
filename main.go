@@ -124,6 +124,7 @@ func main() {
 		log.Fatal(err)
 	}
 	forever := true
+	ConfigObject.cache.InitializeMemory()
 	go system.Poll(&ConfigObject.cache, ConfigObject.jsonConfig, forever)
 	http.HandleFunc("/", home)
 	http.HandleFunc("/metrics", metrics)
