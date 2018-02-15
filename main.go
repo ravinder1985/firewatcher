@@ -35,8 +35,10 @@ var ConfigObject Config
 
 func metrics(w http.ResponseWriter, r *http.Request) {
 	jsonConfig := ConfigObject.jsonConfig
-	monitoringResult := ConfigObject.cache.Get()
-	log.Println("Data in memory: ", monitoringResult)
+	//monitoringResult := ConfigObject.cache.Get()
+
+	//Lock before read
+	ConfigObject.cache.RLock()
 	var d, s string
 	//var serviceStatus string
 	for _, commands := range jsonConfig.Commands {
@@ -51,7 +53,7 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		s = "# HELP " + name + " " + commands.Help + "\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
-		commandresult := monitoringResult[saveas+"Result"]
+		commandresult := ConfigObject.cache.Result[saveas+"Result"]
 		results := strings.Split(commandresult, "\n")
 		tag := ""
 		if unique != "" {
@@ -60,7 +62,7 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 
 		//fmt.Println(data.Result)
 		// status could be 0, 1 ,2 or 3 in case of monitoring
-		serviceStatus := monitoringResult[saveas]
+		serviceStatus := ConfigObject.cache.Result[saveas]
 		for _, result := range results {
 			commandOutput := strings.Split(result, ":")
 			if len(commandOutput) == 2 {
@@ -88,6 +90,8 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		// 	d += name + `{type="` + commands.Lables.Type + `",status="UNKNOWN"} ` + string(data.Result[commands.Name]) + ``
 		// }
 	}
+	// Release the lock
+	ConfigObject.cache.RUnlock()
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	//fmt.Fprintf(w, d)
 	w.Write([]byte(d))

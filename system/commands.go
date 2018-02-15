@@ -36,7 +36,7 @@ type Lables struct {
 
 // ReturnStruct would hold the data
 type ReturnStruct struct {
-	sync.Mutex
+	sync.RWMutex
 	TW     sync.WaitGroup
 	Read   uint64
 	Write  uint64
@@ -78,9 +78,21 @@ func (cache *ReturnStruct) unlock() {
 // Get data from cache
 func (cache *ReturnStruct) Get() map[string]string {
 	atomic.AddUint64(&cache.Read, 1)
-	cache.Lock()
-	defer cache.unlock()
+	cache.RLock()
+	defer cache.RUnlock()
+	// Deep copy in order to return different memory location for map read operation.
+	// var readCache = make(map[string]string)
+	// for key, value := range cache.Result {
+	// 	readCache[key] = value
+	// }
 	return cache.Result
+}
+
+// SafeRead data from cache
+func (cache *ReturnStruct) SafeRead(key string) string {
+	cache.RLock()
+	defer cache.RUnlock()
+	return cache.Result[key]
 }
 
 // Poll would parse configs and run them every interval.

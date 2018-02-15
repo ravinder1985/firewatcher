@@ -43,6 +43,10 @@ func TestPollSuccess(t *testing.T) {
 	if result["TestPollSuccess"] != "0" && result["TestPollSuccessResult"] != "success" {
 		t.Errorf("should be :%d, instead of :%s", 0, result["TestPollSuccess"])
 	}
+	value := jsonConfig.data.SafeRead("TestPollSuccess")
+	if value != "0" && jsonConfig.data.SafeRead("TestPollSuccessResult") != "success" {
+		t.Errorf("should be :%d, instead of :%s", 0, value)
+	}
 }
 func TestExternalCommandSuccess(t *testing.T) {
 	//Mock object for testing
@@ -94,6 +98,10 @@ func TestExternalCommandConcurrencySuccess(t *testing.T) {
 	result := data.Get()
 	if result["test"] != "0" {
 		t.Errorf("should be :%d, instead of :%s", 0, result["test"])
+	}
+	value := data.SafeRead("test")
+	if value != "0" {
+		t.Errorf("should be :%d, instead of :%s", 0, value)
 	}
 }
 
@@ -177,5 +185,9 @@ func TestExternalCommandConcurrencyFailed(t *testing.T) {
 	result := data.Get()
 	if result["test"] != "7" {
 		t.Errorf("should be :%d, instead of :%s", 0, result["test"])
+	}
+	value := data.SafeRead("test")
+	if value != "7" {
+		t.Errorf("should be :%d, instead of :%s", 0, value)
 	}
 }
