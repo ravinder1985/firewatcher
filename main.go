@@ -90,6 +90,9 @@ func (*Config) SetupStorage(dirName string) {
 	} else {
 		checkError(err)
 	}
+	newFile, err := os.Create(*ConfigObject.WorkingDir + "/" + dirName + "/" + "aggregateResult.db")
+	checkError(err)
+	fmt.Println("DB file created: ", newFile.Name())
 }
 
 // DCOSLogin method returns a login token.
