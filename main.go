@@ -409,7 +409,11 @@ func PollDCOS(ConfigObject Config, forever bool) {
 	duration := ConfigObject.jsonConfig.ServiceDiscovery.Scrape_interval
 	token := ConfigObject.DCOSLogin(ConfigObject.jsonConfig)
 	for {
-		<-time.After(time.Duration(duration) * time.Second)
+		if len(ConfigObject.jsonConfig.ServiceDiscovery.Apps) <= 0 {
+			fmt.Println("-------------- Nothing to monitor for DCOS --------------")
+			fmt.Println("-------------- Stopping the thread --------------")
+			break
+		}
 		for i := 0; i < len(ConfigObject.jsonConfig.ServiceDiscovery.Apps); i++ {
 			appID := ConfigObject.jsonConfig.ServiceDiscovery.Apps[i].Id
 			url := ConfigObject.jsonConfig.ServiceDiscovery.Marathon.Url + "/" + appID
@@ -438,6 +442,7 @@ func PollDCOS(ConfigObject Config, forever bool) {
 		}
 		ConfigObject.TW.Wait()
 		ConfigObject.aggregateData()
+		<-time.After(time.Duration(duration) * time.Second)
 	}
 }
 
