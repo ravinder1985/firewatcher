@@ -12,9 +12,38 @@ import (
 
 // JSON has json object
 type JSON struct {
-	Duration int
-	Port     string
-	Commands []Commands
+	Duration         int
+	Port             string
+	ServiceDiscovery *ServiceDiscovery
+	Commands         []Commands
+}
+
+// ServiceDiscovery to get data from DCOS
+type ServiceDiscovery struct {
+	Enable          bool
+	Scrape_interval int
+	Type            string
+	Login           Login
+	Marathon        Marathon
+	Apps            []Apps
+}
+
+// Login to get data from DCOS
+type Login struct {
+	Url      string
+	Username string
+	Password string
+}
+
+// Marathon to get data from DCOS
+type Marathon struct {
+	Url string
+}
+
+// App to get data from DCOS
+type Apps struct {
+	Id   string
+	Port string
 }
 
 // Commands has commands onject
