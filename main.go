@@ -240,9 +240,9 @@ func (*Config) processData(filePath string, url string, tempDirPath string, appI
 		var line string
 		if !strings.Contains(fileLine, "#") {
 			if strings.Contains(fileLine, "{") {
-				line = strings.Replace(fileLine, "{", `{endpoint:"`+url+`",appid:"`+appID+`",`, -1)
+				line = strings.Replace(fileLine, "{", `{endpoint="`+url+`",appid="`+appID+`",`, -1)
 			} else {
-				line = strings.Replace(fileLine, " ", `{endpoint:"`+url+`",appid:"`+appID+`"} `, -1)
+				line = strings.Replace(fileLine, " ", `{endpoint="`+url+`",appid="`+appID+`"} `, -1)
 			}
 			_, err := WBuffer.WriteString(line + "\n")
 			checkError(err)
