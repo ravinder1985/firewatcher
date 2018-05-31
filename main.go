@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -82,21 +83,29 @@ func (*Config) ReadFile(fileName string) ([]byte, error) {
 }
 
 // SetupStorage Would setup data dir for data storage
-func (*Config) SetupStorage(dirName string) {
-	err := os.Mkdir(*ConfigObject.WorkingDir+"/"+dirName, 0744)
-	ConfigObject.dataDir = *ConfigObject.WorkingDir + "/" + dirName
+func (*Config) SetupStorage(dirName string, dbFile string) {
+	err := os.Mkdir(*ConfigObject.WorkingDir+"/data", 0744)
+	ConfigObject.dataDir = *ConfigObject.WorkingDir + "/data"
+	if os.IsExist(err) {
+		fmt.Println("data dir Already exist")
+	} else {
+		checkError(err)
+	}
+
+	err = os.Mkdir(*ConfigObject.WorkingDir+"/data/"+dirName, 0744)
 	if os.IsExist(err) {
 		fmt.Println(dirName + " dir Already exist")
 	} else {
 		checkError(err)
 	}
-	newFile, err := os.Create(*ConfigObject.WorkingDir + "/" + dirName + "/" + "aggregateResult.db")
+	newFile, err := os.Create(*ConfigObject.WorkingDir + "/data/" + dbFile)
 	checkError(err)
 	fmt.Println("DB file created: ", newFile.Name())
 }
 
 // DCOSLogin method returns a login token.
 func (*Config) DCOSLogin(jsonConfig system.JSON) string {
+	skip := false
 	timeout := time.Duration(5 * time.Second)
 	dcos := jsonConfig.ServiceDiscovery.Login.Url
 	username := jsonConfig.ServiceDiscovery.Login.Username
@@ -109,12 +118,22 @@ func (*Config) DCOSLogin(jsonConfig system.JSON) string {
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-type", "application/json")
 	resp, err := client.Do(req)
-	checkError(err)
+	if e, ok := err.(net.Error); ok && e.Timeout() {
+		fmt.Println("Error: DCOSLogin Http request timeout...")
+		fmt.Println("------------ Try again in next cycle ------------")
+		skip = true
+	} else {
+		checkError(err)
+	}
 	defer resp.Body.Close()
-	var result loginResult
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	checkError(err)
-	return result.Token
+	if skip != true {
+		var result loginResult
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		checkError(err)
+		return result.Token
+	} else {
+		return ""
+	}
 }
 
 // GetServiceList method to get list of Ips
@@ -134,17 +153,30 @@ func (*Config) GetServiceList(token string, url string, appPort string) ([]strin
 	req.Header.Add("Content-type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	resp, err := client.Do(req)
-	if err != nil {
+	if e, ok := err.(net.Error); ok && e.Timeout() {
+		fmt.Println("Error: Http request timeout...")
+		fmt.Println("------------ Try again in next cycle ------------")
+		return urlList, nil
+	} else if err != nil {
 		return nil, err
 	}
+	//fmt.Println(resp.StatusCode)
 	defer resp.Body.Close()
 	var result appResult
 
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if resp.StatusCode == 401 {
 		return nil, errors.New("401")
+	} else if resp.StatusCode == 404 {
+		fmt.Println("Error: Application [" + url + "]does not exsist..")
+		fmt.Println("------------ Try again in next cycle ------------")
+		return urlList, nil
 	} else {
-		fmt.Println(err)
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			fmt.Println("Error: Http request timeout...")
+			fmt.Println("------------ Try again in next cycle ------------")
+			return urlList, nil
+		}
 	}
 	var containerPortMapping []PortMappings
 	if len(result.App.Container.Docker.Portmappings) > 0 {
@@ -168,7 +200,10 @@ func (*Config) GetServiceList(token string, url string, appPort string) ([]strin
 		}
 	}
 	// Get list of runnnig tasks
+	// fmt.Println(result.App.Tasks)
+	// fmt.Println(portLocation)
 	for i := 0; i < len(result.App.Tasks); i++ {
+		fmt.Println(result.App.Tasks[i].State)
 		if result.App.Tasks[i].State == "TASK_RUNNING" {
 			urlList = append(urlList, result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[portLocation]))
 		}
@@ -176,25 +211,29 @@ func (*Config) GetServiceList(token string, url string, appPort string) ([]strin
 	return urlList, nil
 }
 
-func (*Config) aggregateData() {
+func (*Config) aggregateData(aggregateFile string, serviceType string) {
 	ConfigObject.Lock()
-	aggregateResultFile := ConfigObject.dataDir + "/" + "aggregateResult.db"
+	serviceTypeUrl := ConfigObject.dataDir + "/" + serviceType
+	aggregateResultFile := ConfigObject.dataDir + "/" + aggregateFile
+	fmt.Println(aggregateResultFile)
 	// Open file to add specific server
 	aggregateResultFileDescriptor, err := os.OpenFile(aggregateResultFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0755)
 	checkError(err)
 	WBuffer := bufio.NewWriter(aggregateResultFileDescriptor)
 	defer aggregateResultFileDescriptor.Close()
-	dataDirInfo, err := ioutil.ReadDir(ConfigObject.dataDir)
+	dataDirInfo, err := ioutil.ReadDir(serviceTypeUrl)
 	checkError(err)
 	for _, f := range dataDirInfo {
 		if f.IsDir() {
-			fmt.Println(f.Name())
-			tmpDirinfo, err := ioutil.ReadDir(ConfigObject.dataDir + "/" + f.Name())
-			path := ConfigObject.dataDir + "/" + f.Name()
+			//fmt.Println(f.Name())
+			tmpDirinfo, err := ioutil.ReadDir(serviceTypeUrl + "/" + f.Name())
+			path := serviceTypeUrl + "/" + f.Name()
 			checkError(err)
 			for _, tf := range tmpDirinfo {
 				if !tf.IsDir() {
 					file := path + "/" + tf.Name()
+					fmt.Println(path)
+					fmt.Println(file)
 					tmpFileDescriptor, err := os.OpenFile(file, os.O_RDWR, 0755)
 					checkError(err)
 					defer tmpFileDescriptor.Close()
@@ -262,14 +301,14 @@ func (*Config) processData(filePath string, url string, tempDirPath string, appI
 }
 
 // WriteToFile method to read config file
-func (*Config) WriteToFile(resultTmpDir string, data []byte, url string, appID string) {
+func (*Config) WriteToFile(serviceType string, resultTmpDir string, data []byte, url string, appID string) {
 	//Create a temp dir in the system default temp folder
-	tempDirPath, err := ioutil.TempDir(ConfigObject.dataDir, "TMP_"+resultTmpDir)
+	tempDirPath, err := ioutil.TempDir(ConfigObject.dataDir+"/"+serviceType, "TMP_"+resultTmpDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Temp dir created:", tempDirPath)
-	fmt.Println(ConfigObject.dataDir)
+	//fmt.Println(ConfigObject.dataDir)
 	// Create a file in new temp directory
 	tempFile, err := ioutil.TempFile(tempDirPath, "TMP_"+resultTmpDir)
 	if err != nil {
@@ -284,21 +323,37 @@ func (*Config) WriteToFile(resultTmpDir string, data []byte, url string, appID s
 }
 
 // ScrapeMetrics method to read config file
-func (*Config) ScrapeMetrics(url string, resultTmpDir string, CO *Config, appID string) {
+func (*Config) ScrapeMetrics(url string, serviceType string, resultTmpDir string, CO *Config, appID string) {
 	timeout := time.Duration(10 * time.Second)
+	skip := false
 	client := http.Client{
 		Timeout: timeout,
 	}
-	fmt.Println(url)
+	//fmt.Println(url)
 	//url = "http://cdtsckfk04p:8080/metrics"
 	req, err := http.NewRequest("GET", url, nil)
 	resp, err := client.Do(req)
-	checkError(err)
-	body, err := ioutil.ReadAll(resp.Body)
-	checkError(err)
-	// fmt.Println(string(body))
-	ConfigObject.WriteToFile(resultTmpDir, body, url, appID)
-	defer resp.Body.Close()
+	if e, ok := err.(net.Error); ok && e.Timeout() {
+		fmt.Println("Error: Http request timeout...")
+		fmt.Println("------------ Try again in next cycle ------------")
+		skip = true
+	} else {
+		checkError(err)
+	}
+	if skip != true {
+		body, err := ioutil.ReadAll(resp.Body)
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			fmt.Println("Error: Http request timeout...")
+			fmt.Println("------------ Try again in next cycle ------------")
+		} else {
+			//fmt.Println(resp.StatusCode)
+			checkError(err)
+			// fmt.Println(string(body))
+			ConfigObject.WriteToFile(serviceType, resultTmpDir, body, url, appID)
+
+			defer resp.Body.Close()
+		}
+	}
 	defer CO.TW.Done()
 }
 
@@ -362,11 +417,14 @@ func metrics(w http.ResponseWriter, r *http.Request) {
 		// 	d += name + `{type="` + commands.Lables.Type + `",status="UNKNOWN"} ` + string(data.Result[commands.Name]) + ``
 		// }
 	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	file, err := ioutil.ReadFile(ConfigObject.dataDir + "/aggregateLocal.db")
+	checkError(err)
+	w.Write([]byte(d))
+	w.Write(file)
 	// Release the lock
 	ConfigObject.cache.RUnlock()
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	//fmt.Fprintf(w, d)
-	w.Write([]byte(d))
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
@@ -408,9 +466,13 @@ func parseConfig(ConfigFile string, config ReadConfig) (system.JSON, error) {
 }
 
 // PollDCOS would Get ips from DCOS
-func PollDCOS(ConfigObject Config, forever bool) {
+func PollDCOS(ConfigObject Config, aggregateFile string, forever bool) {
 	duration := ConfigObject.jsonConfig.ServiceDiscovery.Scrape_interval
 	token := ConfigObject.DCOSLogin(ConfigObject.jsonConfig)
+	serviceType := ConfigObject.jsonConfig.ServiceDiscovery.Type
+	fmt.Println(ConfigObject.jsonConfig.LocalMetrics.Urls)
+	// Setup storage dir
+	ConfigObject.SetupStorage(ConfigObject.jsonConfig.ServiceDiscovery.Type, aggregateFile)
 	for {
 		if len(ConfigObject.jsonConfig.ServiceDiscovery.Apps) <= 0 {
 			fmt.Println("-------------- Nothing to monitor for DCOS --------------")
@@ -418,33 +480,69 @@ func PollDCOS(ConfigObject Config, forever bool) {
 			break
 		}
 		for i := 0; i < len(ConfigObject.jsonConfig.ServiceDiscovery.Apps); i++ {
+			skip := false
 			appID := ConfigObject.jsonConfig.ServiceDiscovery.Apps[i].Id
 			url := ConfigObject.jsonConfig.ServiceDiscovery.Marathon.Url + "/" + appID
 			appPort := ConfigObject.jsonConfig.ServiceDiscovery.Apps[i].Port
 			list, err := ConfigObject.GetServiceList(token, url, appPort)
 			if err != nil {
+				//fmt.Println(err.Error())
 				if err.Error() == "401" {
 					fmt.Println("Login Agian........")
 					token = ConfigObject.DCOSLogin(ConfigObject.jsonConfig)
 					list, err = ConfigObject.GetServiceList(token, url, appPort)
 					checkError(err)
 				} else {
-					panic(err)
+					if e, ok := err.(net.Error); ok && e.Timeout() {
+						fmt.Println("Error: Http request timeout...")
+						fmt.Println("------------ Try again in next cycle ------------")
+						skip = true
+					} else {
+						checkError(err)
+					}
+					//panic(err)
 				}
 			} else {
 				fmt.Println("No need to login again........")
 			}
-			fmt.Println("List of ips for ", appID, list)
-			resultTmpDir := strings.Replace(appID, "/", "_", -1)
-			fmt.Println(resultTmpDir)
-			for index := range list {
-				fmt.Println(list[index])
-				ConfigObject.TW.Add(1)
-				go ConfigObject.ScrapeMetrics("http://"+list[index]+"/metrics", resultTmpDir, &ConfigObject, appID)
+			if skip != true {
+				fmt.Println("List of ips for ", appID, list)
+				resultTmpDir := strings.Replace(appID, "/", "_", -1)
+				for index := range list {
+					//fmt.Println(list[index])
+					ConfigObject.TW.Add(1)
+					go ConfigObject.ScrapeMetrics("http://"+list[index]+"/metrics", serviceType, resultTmpDir, &ConfigObject, appID)
+				}
 			}
 		}
 		ConfigObject.TW.Wait()
-		ConfigObject.aggregateData()
+		ConfigObject.aggregateData(aggregateFile, serviceType)
+		<-time.After(time.Duration(duration) * time.Second)
+	}
+}
+
+// PollLocal would Get ips from DCOS
+func PollLocal(ConfigObject Config, aggregateFile string, forever bool) {
+	duration := ConfigObject.jsonConfig.LocalMetrics.Scrape_interval
+	serviceType := ConfigObject.jsonConfig.LocalMetrics.Type
+	fmt.Println(ConfigObject.jsonConfig.LocalMetrics.Urls)
+	// Setup storage dir
+	ConfigObject.SetupStorage(ConfigObject.jsonConfig.LocalMetrics.Type, aggregateFile)
+	for {
+		if len(ConfigObject.jsonConfig.LocalMetrics.Urls) <= 0 {
+			fmt.Println("-------------- Nothing to monitor for Local Url --------------")
+			fmt.Println("-------------- Stopping the thread --------------")
+			break
+		}
+		for i := 0; i < len(ConfigObject.jsonConfig.LocalMetrics.Urls); i++ {
+			appID := ConfigObject.jsonConfig.LocalMetrics.Urls[i].Name
+			url := ConfigObject.jsonConfig.LocalMetrics.Urls[i].Url
+			resultTmpDir := strings.Replace(appID, "/", "_", -1)
+			ConfigObject.TW.Add(1)
+			go ConfigObject.ScrapeMetrics(url, serviceType, resultTmpDir, &ConfigObject, appID)
+		}
+		ConfigObject.TW.Wait()
+		ConfigObject.aggregateData(aggregateFile, serviceType)
 		<-time.After(time.Duration(duration) * time.Second)
 	}
 }
@@ -458,12 +556,14 @@ func main() {
 	checkError(err)
 	ConfigObject.WorkingDir = flag.String("storage.path", currentWD, "a string")
 	flag.Parse()
-	// Setup storage dir
-	ConfigObject.SetupStorage("data")
+
 	ConfigObject.jsonConfig, err = parseConfig(*filename, &ConfigObject)
 	checkError(err)
 	if ConfigObject.jsonConfig.ServiceDiscovery != nil && ConfigObject.jsonConfig.ServiceDiscovery.Enable {
-		go PollDCOS(ConfigObject, true)
+		go PollDCOS(ConfigObject, "aggregateResult.db", true)
+	}
+	if ConfigObject.jsonConfig.LocalMetrics != nil && ConfigObject.jsonConfig.LocalMetrics.Enable {
+		go PollLocal(ConfigObject, "aggregateLocal.db", true)
 	}
 	forever := true
 	ConfigObject.cache.InitializeMemory()

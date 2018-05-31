@@ -15,6 +15,7 @@ type JSON struct {
 	Duration         int
 	Port             string
 	ServiceDiscovery *ServiceDiscovery
+	LocalMetrics     *LocalMetrics
 	Commands         []Commands
 }
 
@@ -26,6 +27,20 @@ type ServiceDiscovery struct {
 	Login           Login
 	Marathon        Marathon
 	Apps            []Apps
+}
+
+// LocalMetrics to get data from DCOS
+type LocalMetrics struct {
+	Enable          bool
+	Scrape_interval int
+	Type            string
+	Urls            []Urls
+}
+
+// Urls to get data from DCOS
+type Urls struct {
+	Name string
+	Url  string
 }
 
 // Login to get data from DCOS
