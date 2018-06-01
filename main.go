@@ -125,8 +125,8 @@ func (*Config) DCOSLogin(jsonConfig system.JSON) string {
 	} else {
 		checkError(err)
 	}
-	defer resp.Body.Close()
 	if skip != true {
+		defer resp.Body.Close()
 		var result loginResult
 		err = json.NewDecoder(resp.Body).Decode(&result)
 		checkError(err)
@@ -205,7 +205,11 @@ func (*Config) GetServiceList(token string, url string, appPort string) ([]strin
 	for i := 0; i < len(result.App.Tasks); i++ {
 		fmt.Println(result.App.Tasks[i].State)
 		if result.App.Tasks[i].State == "TASK_RUNNING" {
-			urlList = append(urlList, result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[portLocation]))
+			if portLocation > -1 {
+				urlList = append(urlList, result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[portLocation]))
+			} else {
+				println("Error: Port [" + exposedPort + "] in configration seems to be wrong! Please make sure port is exposed from the container " + url)
+			}
 		}
 	}
 	return urlList, nil
@@ -470,7 +474,6 @@ func PollDCOS(ConfigObject Config, aggregateFile string, forever bool) {
 	duration := ConfigObject.jsonConfig.ServiceDiscovery.Scrape_interval
 	token := ConfigObject.DCOSLogin(ConfigObject.jsonConfig)
 	serviceType := ConfigObject.jsonConfig.ServiceDiscovery.Type
-	fmt.Println(ConfigObject.jsonConfig.LocalMetrics.Urls)
 	// Setup storage dir
 	ConfigObject.SetupStorage(ConfigObject.jsonConfig.ServiceDiscovery.Type, aggregateFile)
 	for {
@@ -525,7 +528,6 @@ func PollDCOS(ConfigObject Config, aggregateFile string, forever bool) {
 func PollLocal(ConfigObject Config, aggregateFile string, forever bool) {
 	duration := ConfigObject.jsonConfig.LocalMetrics.Scrape_interval
 	serviceType := ConfigObject.jsonConfig.LocalMetrics.Type
-	fmt.Println(ConfigObject.jsonConfig.LocalMetrics.Urls)
 	// Setup storage dir
 	ConfigObject.SetupStorage(ConfigObject.jsonConfig.LocalMetrics.Type, aggregateFile)
 	for {
@@ -556,6 +558,15 @@ func main() {
 	checkError(err)
 	ConfigObject.WorkingDir = flag.String("storage.path", currentWD, "a string")
 	flag.Parse()
+
+	err = os.Remove(*ConfigObject.WorkingDir + "/data/aggregateLocal.db")
+	if os.IsExist(err) {
+		checkError(err)
+	}
+	err = os.Remove(*ConfigObject.WorkingDir + "/data/aggregateResult.db")
+	if os.IsExist(err) {
+		checkError(err)
+	}
 
 	ConfigObject.jsonConfig, err = parseConfig(*filename, &ConfigObject)
 	checkError(err)
