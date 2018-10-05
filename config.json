@@ -6,20 +6,20 @@
     "scrape_interval": 30,
     "type": "dcos",
     "login": {
-      "url": "http://CNAME_OF_DCOS/acs/api/v1/auth/login",
-      "username": "***",
-      "password": "***"
+      "url": "http://DCOSURL/acs/api/v1/auth/login",
+      "username": "user",
+      "password": "password"
     },
     "marathon": {
-      "url": "http://CNAME_OF_DCOS:8080/v2/apps"
+      "url": "http://merathonURL:8080/v2/apps"
     },
     "apps":[
       {
-        "id": "/dev/**/**/**",
+        "id": "appID",
         "port": "9096"
       },
       {
-        "id": "/dev/**/**/**",
+        "id": "appID",
         "port": "9097"
       }
     ]
@@ -31,11 +31,7 @@
     "urls":[
       {
         "name": "cassandra_jmx",
-        "url": "http://***************:7070/metrics"
-      },
-      {
-        "name": "kafka_jmx",
-        "url": "http://***************:7070/metrics"
+        "url": "http://127.0.0.1:7070/metrics"
       }
     ]
   },

@@ -110,6 +110,13 @@ func (*Config) DCOSLogin(jsonConfig system.JSON) string {
 	dcos := jsonConfig.ServiceDiscovery.Login.Url
 	username := jsonConfig.ServiceDiscovery.Login.Username
 	password := jsonConfig.ServiceDiscovery.Login.Password
+
+	if username == "" {
+		username = os.Getenv("USERNAME")
+	}
+	if password == "" {
+		password = os.Getenv("PASSWORD")
+	}
 	client := http.Client{
 		Timeout: timeout,
 	}
