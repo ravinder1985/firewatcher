@@ -264,7 +264,7 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 	token := DCOSLogin(&ConfigObject.JsonConfig, hrc)
 	serviceType := ConfigObject.JsonConfig.ServiceDiscovery.Type
 	// Setup storage dir
-	common.SetupStorage(ConfigObject, aggregateFile)
+	common.SetupStorage(ConfigObject, serviceType, aggregateFile)
 	for {
 		if len(ConfigObject.JsonConfig.ServiceDiscovery.Apps) <= 0 {
 			fmt.Println("-------------- Nothing to monitor for DCOS --------------")
@@ -321,7 +321,7 @@ func PollLocal(ConfigObject *common.Config, aggregateFile string, forever bool) 
 	duration := ConfigObject.JsonConfig.LocalMetrics.Scrape_interval
 	serviceType := ConfigObject.JsonConfig.LocalMetrics.Type
 	// Setup storage dir
-	common.SetupStorage(ConfigObject, aggregateFile)
+	common.SetupStorage(ConfigObject, serviceType, aggregateFile)
 	for {
 		if len(ConfigObject.JsonConfig.LocalMetrics.Urls) <= 0 {
 			fmt.Println("-------------- Nothing to monitor for Local Url --------------")

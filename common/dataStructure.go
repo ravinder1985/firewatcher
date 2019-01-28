@@ -166,8 +166,7 @@ func (*Config) ReadFile(fileName string) ([]byte, error) {
 }
 
 // SetupStorage Would setup data dir for data storage
-func SetupStorage(ConfigObject *Config, dbFile string) {
-	dirName := ConfigObject.JsonConfig.LocalMetrics.Type
+func SetupStorage(ConfigObject *Config, serviceType string, dbFile string) {
 	err := os.Mkdir(*ConfigObject.WorkingDir+"/data", 0744)
 	ConfigObject.DataDir = *ConfigObject.WorkingDir + "/data"
 	if os.IsExist(err) {
@@ -176,9 +175,9 @@ func SetupStorage(ConfigObject *Config, dbFile string) {
 		CheckError(err)
 	}
 
-	err = os.Mkdir(*ConfigObject.WorkingDir+"/data/"+dirName, 0744)
+	err = os.Mkdir(*ConfigObject.WorkingDir+"/data/"+serviceType, 0744)
 	if os.IsExist(err) {
-		fmt.Println(dirName + " dir Already exist")
+		fmt.Println(serviceType + " dir Already exist")
 	} else {
 		CheckError(err)
 	}
@@ -306,8 +305,7 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 		Timeout: timeout,
 	}
 	resp, err := remote.PrometheusMetricsScrape(url, client)
-	fmt.Println(resp.StatusCode)
-	if resp.StatusCode == 404 {
+	if resp != nil && resp.StatusCode == 404 {
 		fmt.Println("Error: endpoint " + url + " Does not exist...")
 		fmt.Println("------------ Fix your Configrations ------------")
 		skip = true
@@ -325,7 +323,6 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 			fmt.Println("Error: Http request timeout...")
 			fmt.Println("------------ Try again in next cycle ------------")
 		} else {
-			//fmt.Println(resp.StatusCode)
 			CheckError(err)
 			// fmt.Println(string(body))
 			WriteToFile(ConfigObject, serviceType, resultTmpDir, body, url, appID)
