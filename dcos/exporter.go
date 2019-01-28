@@ -20,6 +20,7 @@ type httpcalls struct {
 }
 
 var hrc httpcalls
+var sdMap = make(map[string]map[int][]string, 1)
 
 // Login to get token
 func (httpcalls) Login(url string, jsonData []byte, client http.Client) (*http.Response, error) {
@@ -176,8 +177,9 @@ func (httpcalls) ServiceDiscovery(token string, url string, client http.Client) 
 }
 
 // GetServiceList method to get list of Ips
-func GetServiceList(token string, url string, appPort string, remote common.DCOSCalls) ([]string, error) {
+func GetServiceList(token string, url string, appPort string, appId string, remote common.DCOSCalls) ([]string, error) {
 	var urlList []string
+
 	exposedPort := appPort
 	portLocation := -1
 	timeout := time.Duration(5 * time.Second)
@@ -211,39 +213,48 @@ func GetServiceList(token string, url string, appPort string, remote common.DCOS
 		}
 	}
 	var containerPortMapping []common.PortMappings
-	if len(result.App.Container.Docker.Portmappings) > 0 {
-		fmt.Println("OLD version of DCOS")
-		containerPortMapping = result.App.Container.Docker.Portmappings
-	} else if len(result.App.Container.Portmappings) > 0 {
-		fmt.Println("NEW version of DCOS")
-		containerPortMapping = result.App.Container.Portmappings
-	} else {
-		if portLocation == -1 {
-			fmt.Println("Error: config file has wrong port OR port is not exposed in the application container OR container is not up yet" + url)
-			return urlList, nil
-		}
-	}
-	if len(containerPortMapping) > 0 {
-		for i := 0; i < len(containerPortMapping); i++ {
-			if exposedPort == strconv.Itoa(containerPortMapping[i].ContainerPort) {
-				portLocation = i
-				break
+
+	if result.App != nil {
+		if result.App.Container.Docker != nil && len(result.App.Container.Docker.Portmappings) > 0 {
+			fmt.Println("OLD version of DCOS")
+			containerPortMapping = result.App.Container.Docker.Portmappings
+		} else if len(result.App.Container.Portmappings) > 0 {
+			fmt.Println("NEW version of DCOS")
+			containerPortMapping = result.App.Container.Portmappings
+		} else {
+			if portLocation == -1 {
+				fmt.Println("Error: config file has wrong port OR port is not exposed in the application container OR container is not up yet" + url)
+				return urlList, nil
 			}
 		}
-	}
-	// Get list of runnnig tasks
-	// fmt.Println(result.App.Tasks)
-	// fmt.Println(portLocation)
-	for i := 0; i < len(result.App.Tasks); i++ {
-		fmt.Println(result.App.Tasks[i].State)
-		if result.App.Tasks[i].State == "TASK_RUNNING" {
-			if portLocation > -1 {
-				urlList = append(urlList, result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[portLocation]))
-			} else {
-				println("Error: Port [" + exposedPort + "] in configration seems to be wrong! Please make sure port is exposed from the container " + url)
+		if len(containerPortMapping) > 0 {
+			for i := 0; i < len(containerPortMapping); i++ {
+				fmt.Println(containerPortMapping[i].ContainerPort)
+				if exposedPort == strconv.Itoa(containerPortMapping[i].ContainerPort) {
+					portLocation = i
+					break
+				}
 			}
 		}
+		var appMap = make(map[int][]string, 1)
+		for i := 0; i < len(result.App.Tasks); i++ {
+			fmt.Println(result.App.Tasks[i].State)
+			if result.App.Tasks[i].State == "TASK_RUNNING" {
+				if portLocation > -1 {
+					urlList = append(urlList, result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[portLocation]))
+				} else {
+					println("Error: Port [" + exposedPort + "] in configration seems to be wrong! Please make sure port is exposed from the container " + url)
+				}
+				if len(containerPortMapping) > 0 {
+					for j := 0; j < len(containerPortMapping); j++ {
+						appMap[containerPortMapping[j].ContainerPort] = append(appMap[containerPortMapping[j].ContainerPort], result.App.Tasks[i].Host+":"+strconv.Itoa(result.App.Tasks[i].Ports[j]))
+					}
+				}
+			}
+		}
+		sdMap[appId] = appMap
 	}
+
 	return urlList, nil
 }
 
@@ -265,13 +276,13 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			appID := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Id
 			url := ConfigObject.JsonConfig.ServiceDiscovery.Marathon.Url + "/" + appID
 			appPort := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Port
-			list, err := GetServiceList(token, url, appPort, hrc)
+			list, err := GetServiceList(token, url, appPort, appID, hrc)
 			if err != nil {
 				//fmt.Println(err.Error())
 				if err.Error() == "401" {
 					fmt.Println("Login Agian........")
 					token = DCOSLogin(&ConfigObject.JsonConfig, hrc)
-					list, err = GetServiceList(token, url, appPort, hrc)
+					list, err = GetServiceList(token, url, appPort, appID, hrc)
 					common.CheckError(err)
 				} else {
 					if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -289,6 +300,9 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			if skip != true {
 				fmt.Println("List of ips for ", appID, list)
 				resultTmpDir := strings.Replace(appID, "/", "_", -1)
+
+				//Set the values in SDMap
+				ConfigObject.ServicesEndpoints.Set(sdMap)
 				for index := range list {
 					//fmt.Println(list[index])
 					ConfigObject.TW.Add(1)

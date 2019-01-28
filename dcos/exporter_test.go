@@ -65,7 +65,7 @@ func (dcosCalls) ServiceDiscovery(token string, url string, client http.Client) 
 
 		} else {
 
-			io.WriteString(w, `{"app":{"id":"/dev/test","acceptedResourceRoles":["*"],"backoffFactor":1.15,"backoffSeconds":1,"container":{"type":"DOCKER","docker":{"forcePullImage":true,"image":"","parameters":[{"key":"volume-driver","value":"pxd"},{"key":"volume","value":"name=dev:/opt/docker/logs"}],"privileged":false},"volumes":[],"portMappings":[{"containerPort":2540,"hostPort":0,"labels":{},"name":"default","protocol":"tcp","servicePort":10353},{"containerPort":9096,"hostPort":0,"labels":{},"name":"prometheus","protocol":"tcp","servicePort":10355}]},"cpus":1,"disk":0,"env":{"JAVA_OPTS":"-Xmx3G","APP-NAME":"abc","ENV":"dev","HOST_TCP":"","env":"dev"},"executor":"","fetch":[{"uri":"/etc/docker.tar.gz","extract":true,"executable":false,"cache":false}],"healthChecks":[{"gracePeriodSeconds":300,"intervalSeconds":60,"maxConsecutiveFailures":3,"path":"/metrics","portIndex":1,"protocol":"MESOS_HTTP","timeoutSeconds":20,"delaySeconds":15}],"instances":1,"labels":{"HAPROXY_0_VHOST":"","HAPROXY_GROUP":"devl"},"maxLaunchDelaySeconds":3600,"mem":4096,"gpus":0,"networks":[{"name":"dcos","mode":"container"}],"requirePorts":false,"upgradeStrategy":{"maximumOverCapacity":0,"minimumHealthCapacity":0},"version":"2018-09-20T19:09:12.036Z","versionInfo":{"lastScalingAt":"2018-09-20T19:09:12.036Z","lastConfigChangeAt":"2018-09-20T19:09:12.036Z"},"killSelection":"YOUNGEST_FIRST","unreachableStrategy":{"inactiveAfterSeconds":300,"expungeAfterSeconds":600},"tasksStaged":0,"tasksRunning":1,"tasksHealthy":1,"tasksUnhealthy":0,"deployments":[],"tasks":[{"ipAddresses":[{"ipAddress":"9.0.36.134","protocol":"IPv4"}],"stagedAt":"2018-11-26T21:34:54.650Z","state":"TASK_RUNNING","ports":[7786,7787],"startedAt":"2018-11-26T21:36:16.040Z","version":"2018-09-20T19:09:12.036Z","id":"dev","appId":"/dev/test","slaveId":"5e2605c3-cf49-4479-af14-73cd00e70ea2-S5","host":"1.4.2.8","healthCheckResults":[{"alive":true,"consecutiveFailures":0,"firstSuccess":"2018-11-27T18:30:47.532Z","lastFailure":null,"lastSuccess":"2018-11-27T18:30:47.532Z","lastFailureCause":null,"instanceId":"dev"}]}],"lastTaskFailure":{"appId":"/dev/test","host":"10.45.22.79","message":"Container exited with status 137","state":"TASK_FAILED","taskId":"dev","timestamp":"2018-11-26T21:34:53.050Z","version":"2018-09-20T19:09:12.036Z","slaveId":"5e2605c3-cf49-4479-af14-73cd00e70ea2-S3"}}}`)
+			io.WriteString(w, `{"app":{"id":"/dev/test","acceptedResourceRoles":["*"],"backoffFactor":1.15,"backoffSeconds":1,"container":{"type":"DOCKER","volumes":[],"portMappings":[{"containerPort":2540,"hostPort":0,"labels":{},"name":"default","protocol":"tcp","servicePort":10353},{"containerPort":9096,"hostPort":0,"labels":{},"name":"prometheus","protocol":"tcp","servicePort":10355}]},"cpus":1,"disk":0,"env":{"JAVA_OPTS":"-Xmx3G","APP-NAME":"abc","ENV":"dev","HOST_TCP":"","env":"dev"},"executor":"","fetch":[{"uri":"/etc/docker.tar.gz","extract":true,"executable":false,"cache":false}],"healthChecks":[{"gracePeriodSeconds":300,"intervalSeconds":60,"maxConsecutiveFailures":3,"path":"/metrics","portIndex":1,"protocol":"MESOS_HTTP","timeoutSeconds":20,"delaySeconds":15}],"instances":1,"labels":{"HAPROXY_0_VHOST":"","HAPROXY_GROUP":"devl"},"maxLaunchDelaySeconds":3600,"mem":4096,"gpus":0,"networks":[{"name":"dcos","mode":"container"}],"requirePorts":false,"upgradeStrategy":{"maximumOverCapacity":0,"minimumHealthCapacity":0},"version":"2018-09-20T19:09:12.036Z","versionInfo":{"lastScalingAt":"2018-09-20T19:09:12.036Z","lastConfigChangeAt":"2018-09-20T19:09:12.036Z"},"killSelection":"YOUNGEST_FIRST","unreachableStrategy":{"inactiveAfterSeconds":300,"expungeAfterSeconds":600},"tasksStaged":0,"tasksRunning":1,"tasksHealthy":1,"tasksUnhealthy":0,"deployments":[],"tasks":[{"ipAddresses":[{"ipAddress":"9.0.36.134","protocol":"IPv4"}],"stagedAt":"2018-11-26T21:34:54.650Z","state":"TASK_RUNNING","ports":[7786,7787],"startedAt":"2018-11-26T21:36:16.040Z","version":"2018-09-20T19:09:12.036Z","id":"dev","appId":"/dev/test","slaveId":"5e2605c3-cf49-4479-af14-73cd00e70ea2-S5","host":"1.4.2.8","healthCheckResults":[{"alive":true,"consecutiveFailures":0,"firstSuccess":"2018-11-27T18:30:47.532Z","lastFailure":null,"lastSuccess":"2018-11-27T18:30:47.532Z","lastFailureCause":null,"instanceId":"dev"}]}],"lastTaskFailure":{"appId":"/dev/test","host":"10.45.22.79","message":"Container exited with status 137","state":"TASK_FAILED","taskId":"dev","timestamp":"2018-11-26T21:34:53.050Z","version":"2018-09-20T19:09:12.036Z","slaveId":"5e2605c3-cf49-4479-af14-73cd00e70ea2-S3"}}}`)
 		}
 	}
 	req := httptest.NewRequest("POST", "http://example.com/foo", nil)
@@ -316,38 +316,38 @@ func TestDCOSLoginUserFromENVSuccess(t *testing.T) {
 }
 
 func TestGetServiceListSuccess(t *testing.T) {
-	list, _ := GetServiceList("1234", "dcos", "9090", dcos_rc)
+	list, _ := GetServiceList("1234", "dcos", "9090", "test1", dcos_rc)
 	if len(list) != 0 {
 		t.Errorf("should be :%s, instead of :%s", "[]", list)
 	}
 }
 func TestGetServiceListWithExposedPortSuccess(t *testing.T) {
-	list, _ := GetServiceList("1234", "dcos", "9096", dcos_rc)
+	list, _ := GetServiceList("1234", "dcos", "9096", "test2", dcos_rc)
 	if list[0] != "1.4.2.8:7787" {
 		t.Errorf("should be :%s, instead of :%s", "1.4.2.8:7787", list[0])
 	}
 }
 func TestGetServiceListOldFormatSuccess(t *testing.T) {
-	list, _ := GetServiceList("1234", "old_dcos", "9096", dcos_rc)
+	list, _ := GetServiceList("1234", "old_dcos", "9096", "test3", dcos_rc)
 	if list[0] != "1.4.2.8:7787" {
 		t.Errorf("should be :%s, instead of :%s", "1.4.2.8:7787", list[0])
 	}
 }
 
 func TestGetServiceList401(t *testing.T) {
-	_, err := GetServiceList("123", "dcos", "9096", dcos_rc)
+	_, err := GetServiceList("123", "dcos", "9096", "test4", dcos_rc)
 	if err.Error() != "401" {
 		t.Errorf("resp status code should be :%s, instead of :%s", "401", err.Error())
 	}
 }
 func TestGetServiceList404(t *testing.T) {
-	list, err := GetServiceList("1234", "notdcos", "9096", dcos_rc)
+	list, err := GetServiceList("1234", "notdcos", "9096", "test5", dcos_rc)
 	if err != nil && len(list) != 0 {
 		t.Errorf("resp status code should be :%s, instead of :%s", "nil", err.Error())
 	}
 }
 func TestGetServiceListNoPortExported(t *testing.T) {
-	list, err := GetServiceList("1234", "dcos", "9096", dcos_rc2)
+	list, err := GetServiceList("1234", "dcos", "9096", "test6", dcos_rc2)
 	if err != nil && len(list) != 0 {
 		t.Errorf("resp status code should be :%s, instead of :%s", "nil", err.Error())
 	}

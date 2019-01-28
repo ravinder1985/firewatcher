@@ -21,6 +21,48 @@ func CheckError(err error) {
 	}
 }
 
+//ServicesEndpoints to expose
+type ServicesEndpoints struct {
+	sync.RWMutex
+	TW          sync.WaitGroup
+	ServicesMap map[string]map[int][]string
+}
+
+// InitializeMemory for the cache
+func (sEndpointMap *ServicesEndpoints) InitializeMemory() {
+	sEndpointMap.Lock()
+	defer sEndpointMap.unlock()
+	if sEndpointMap.ServicesMap == nil {
+		log.Println("Initialize memory for the services endpoint")
+		sEndpointMap.ServicesMap = make(map[string]map[int][]string, 1)
+	}
+}
+
+// Set values in SDMap
+func (sEndpointMap *ServicesEndpoints) Set(value map[string]map[int][]string) {
+	sEndpointMap.Lock()
+	defer sEndpointMap.unlock()
+	sEndpointMap.ServicesMap = value
+}
+
+// Get data from SDMap
+func (sEndpointMap *ServicesEndpoints) Get() map[string]map[int][]string {
+	sEndpointMap.RLock()
+	defer sEndpointMap.RUnlock()
+	return sEndpointMap.ServicesMap
+}
+
+// GetApp data from SDMap
+func (sEndpointMap *ServicesEndpoints) GetApp(appId string) map[int][]string {
+	sEndpointMap.RLock()
+	defer sEndpointMap.RUnlock()
+	return sEndpointMap.ServicesMap[appId]
+}
+
+func (sEndpointMap *ServicesEndpoints) unlock() {
+	sEndpointMap.Unlock()
+}
+
 // ServiceDiscovery to get data from DCOS
 type ServiceDiscovery struct {
 	Enable          bool
@@ -68,7 +110,7 @@ type App struct {
 	Tasks     []Tasks
 }
 type Container struct {
-	Docker       Docker         `json:"docker"`
+	Docker       *Docker        `json:"docker"`
 	Portmappings []PortMappings `json:"portmappings"`
 }
 type Tasks struct {
@@ -104,11 +146,12 @@ type DCOSCalls interface {
 // Config structure is to store data and configs
 type Config struct {
 	sync.RWMutex
-	TW         sync.WaitGroup
-	Cache      system.ReturnStruct
-	JsonConfig system.JSON
-	WorkingDir *string
-	DataDir    string
+	TW                sync.WaitGroup
+	Cache             system.ReturnStruct
+	JsonConfig        system.JSON
+	ServicesEndpoints ServicesEndpoints
+	WorkingDir        *string
+	DataDir           string
 }
 
 type httpcalls struct {
@@ -263,6 +306,12 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 		Timeout: timeout,
 	}
 	resp, err := remote.PrometheusMetricsScrape(url, client)
+	fmt.Println(resp.StatusCode)
+	if resp.StatusCode == 404 {
+		fmt.Println("Error: endpoint " + url + " Does not exist...")
+		fmt.Println("------------ Fix your Configrations ------------")
+		skip = true
+	}
 	if e, ok := err.(net.Error); ok && e.Timeout() {
 		fmt.Println("Error: Http request timeout...")
 		fmt.Println("------------ Try again in next cycle ------------")

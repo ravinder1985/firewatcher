@@ -100,10 +100,12 @@ func (CTX *configHandler) home(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>write operations: %d</h1>", write)
 	fmt.Fprintf(w, "<a href=/metrics>View Metrics</a>")
 	fmt.Fprintf(w, "<br><a href=/dcosmetrics>View DCOS Metrics</a>")
+	fmt.Fprintf(w, "<br><a href=/servicediscovery>Service Discovery</a>")
 }
 
 func (CTX *configHandler) dcosmetrics(w http.ResponseWriter, r *http.Request) {
 	CTX.ConfigObject.Lock()
+	defer CTX.ConfigObject.Unlock()
 	// fd, err := os.Open(ConfigObject.dataDir + "/aggregateResult.db")
 	// checkError(err)
 	// defer fd.Close()
@@ -115,7 +117,24 @@ func (CTX *configHandler) dcosmetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	//fmt.Fprintf(w, d)
 	w.Write(file)
-	CTX.ConfigObject.Unlock()
+}
+
+func (CTX *configHandler) serviceDiscovery(w http.ResponseWriter, r *http.Request) {
+	appID := strings.Replace(r.RequestURI, "/servicediscovery", "", 1)
+	var js []byte
+	var err error
+	if appID == "/" {
+		js, err = json.Marshal(CTX.ConfigObject.ServicesEndpoints.Get())
+	} else {
+		js, err = json.Marshal(CTX.ConfigObject.ServicesEndpoints.GetApp(appID))
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 func parseConfig(ConfigFile string, config common.ReadConfig) (system.JSON, error) {
@@ -181,6 +200,7 @@ func main() {
 	CTX.ConfigObject.JsonConfig, err = parseConfig(*filename, &CTX.ConfigObject)
 	checkError(err)
 	if CTX.ConfigObject.JsonConfig.ServiceDiscovery != nil && CTX.ConfigObject.JsonConfig.ServiceDiscovery.Enable {
+		CTX.ConfigObject.ServicesEndpoints.InitializeMemory()
 		go dcos.PollDCOS(&CTX.ConfigObject, "aggregateResult.db", true)
 	}
 	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil && CTX.ConfigObject.JsonConfig.LocalMetrics.Enable {
@@ -192,5 +212,6 @@ func main() {
 	http.HandleFunc("/", CTX.home)
 	http.HandleFunc("/metrics", CTX.metrics)
 	http.HandleFunc("/dcosmetrics", CTX.dcosmetrics)
+	http.HandleFunc("/servicediscovery/", CTX.serviceDiscovery)
 	http.ListenAndServe(":"+CTX.ConfigObject.JsonConfig.Port, nil)
 }
