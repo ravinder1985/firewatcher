@@ -43,33 +43,98 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 		}
 
 		name := commands.Name + "_" + commands.Type
-		s = "# HELP " + name + " " + commands.Help + "\n"
+		s = "\n# HELP " + name + " " + commands.Help + "\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
+		uniqueTag := strings.Split(unique, ",")
+
 		commandresult := CTX.ConfigObject.Cache.Result[saveas+"Result"]
 		results := strings.Split(commandresult, "\n")
 		tag := ""
-		if unique != "" {
-			tag = `,unique="` + unique + `"`
-		}
 
 		//fmt.Println(data.Result)
 		// status could be 0, 1 ,2 or 3 in case of monitoring
 		serviceStatus := CTX.ConfigObject.Cache.Result[saveas]
-		for _, result := range results {
-			commandOutput := strings.Split(result, ":")
-			if len(commandOutput) == 2 {
-				if strings.ToUpper(commandOutput[0]) != "RESULT" {
-					tag += ","
-					tag += commandOutput[0] + `="` + strings.TrimSpace(commandOutput[1]) + `"`
-				} else {
-					serviceStatus = strings.TrimSpace(commandOutput[1])
+		outputPerTag := ""
+		skip := false
+
+		if unique != "" {
+			//tag = `,unique="` + unique + `"`
+			numberOfTags := len(uniqueTag)
+			for _, commandTags := range uniqueTag {
+				tag = ""
+				commandTagTrimmed := strings.TrimSpace(commandTags)
+				commandTagUpper := strings.ToUpper(commandTagTrimmed)
+				for _, result := range results {
+					commandOutput := strings.Split(result, ":")
+					if len(commandOutput) == 2 {
+						commandOutputUpper0 := strings.ToUpper(commandOutput[0])
+						commandOutputTrimmed1 := strings.TrimSpace(commandOutput[1])
+						if commandOutputUpper0 != "RESULT" {
+							if !strings.Contains(commandOutputUpper0, "RESULT") {
+								tagsFromScript := commandOutput[0]
+								// if strings.Contains(commandOutputUpper0, commandTagUpper) {
+								// 	tagSetByScript = true
+								// 	tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
+								// 	tagsFromScript = tagValues
+								// 	tag += ","
+								// 	tag += tagsFromScript + `="` + commandOutputTrimmed1 + `"`
+								// } else if strings.Contains(commandOutputUpper0, "Tag_") {
+								//
+								// }
+
+								if strings.Contains(commandOutputUpper0, "TAG_") && strings.Contains(commandOutputUpper0, commandTagUpper) {
+									tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
+									tagsFromScript = tagValues
+									tag += ","
+									tag += tagsFromScript + `="` + commandOutputTrimmed1 + `"`
+								} else {
+									if !strings.Contains(commandOutputUpper0, "TAG_") {
+										tag += ","
+										tag += tagsFromScript + `="` + commandOutputTrimmed1 + `"`
+									}
+								}
+							}
+							if commandOutputUpper0 == commandTagUpper+"_RESULT" {
+								outputPerTag = commandOutputTrimmed1
+							}
+						} else {
+							serviceStatus = commandOutputTrimmed1
+						}
+					}
+				}
+				if numberOfTags > 1 && outputPerTag == "" {
+					skip = true
+				}
+				if outputPerTag != "" {
+					serviceStatus = outputPerTag
+					outputPerTag = ""
+				}
+				if !skip {
+					d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + serviceStatus + ``
+					d += "\n"
 				}
 			}
+		} else {
+			for _, result := range results {
+				commandOutput := strings.Split(result, ":")
+				if len(commandOutput) == 2 {
+					commandOutputUpper0 := strings.ToUpper(commandOutput[0])
+					commandOutputTrimmed1 := strings.TrimSpace(commandOutput[1])
+					if commandOutputUpper0 != "RESULT" {
+						if !strings.Contains(commandOutputUpper0, "RESULT") {
+							tag += ","
+							tag += commandOutput[0] + `="` + commandOutputTrimmed1 + `"`
+						}
+					} else {
+						serviceStatus = commandOutputTrimmed1
+					}
+				}
+			}
+			d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + serviceStatus + ``
+			d += "\n"
 		}
 
-		d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + serviceStatus + ``
-		d += "\n"
 		//name := commands.Name
 
 		// switch strings.TrimSpace(string(data.Result[commands.Name])) {
@@ -208,6 +273,11 @@ func main() {
 	}
 	forever := true
 	CTX.ConfigObject.Cache.InitializeMemory()
+	dirType := "local"
+	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil {
+		dirType = CTX.ConfigObject.JsonConfig.LocalMetrics.Type
+	}
+	common.SetupStorage(&CTX.ConfigObject, dirType, "aggregateLocal.db")
 	go system.Poll(&CTX.ConfigObject.Cache, CTX.ConfigObject.JsonConfig, forever)
 	http.HandleFunc("/", CTX.home)
 	http.HandleFunc("/metrics", CTX.metrics)

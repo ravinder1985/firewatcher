@@ -2,7 +2,7 @@
   "duration": 10,
   "port": "8080",
   "serviceDiscovery": {
-    "enable": true,
+    "enable": false,
     "scrape_interval": 30,
     "type": "dcos",
     "login": {
@@ -25,7 +25,7 @@
     ]
   },
   "localMetrics": {
-    "enable": true,
+    "enable": false,
     "scrape_interval": 30,
     "type": "local",
     "urls":[
@@ -41,7 +41,7 @@
       "type": "service",
       "command": "sh",
       "unique": "2",
-      "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "2"],
+      "options": ["./scripts/checkSpace.sh", "2"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
@@ -49,7 +49,7 @@
       "name": "haproxy",
       "type": "service",
       "command": "sh",
-      "options": ["/Users/harvindersingh/shell_script/haproxy.sh", "1"],
+      "options": ["./scripts/haproxy.sh", "1"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
@@ -58,7 +58,7 @@
       "type": "service",
       "command": "sh",
       "unique": "1",
-      "options": ["/Users/harvindersingh/shell_script/checkSpace.sh", "1"],
+      "options": ["./scripts/checkSpace.sh", "1"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
@@ -67,7 +67,7 @@
       "type": "service",
       "command": "sh",
       "unique": "nginx",
-      "options": ["/Users/harvindersingh/shell_script/nginx.sh", "0"],
+      "options": ["./scripts/nginx.sh", "0"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "Performance result"
     }
@@ -76,20 +76,28 @@
       "name": "daemon_check",
       "type": "service",
       "command": "sh",
-      "unique": "nginx",
-      "options": ["/Users/harvindersingh/shell_script/daemon_check.sh", "nginx"],
+      "unique": "nginx, docker, cntlm, portworx",
+      "options": ["./scripts/daemon_check.sh"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "Performance result"
-    }
-    ,
+    },
     {
-      "name": "daemon_check",
-      "type": "service",
-      "command": "sh",
-      "unique": "haproxy",
-      "options": ["/Users/harvindersingh/shell_script/daemon_check.sh", "haproxy"],
+      "name": "dcacher",
+      "type": "status",
+      "command": "python",
+      "unique": "Miss, Hit, QBSearch",
+      "options": ["./scripts/exposeData.py"],
       "labels": {"type": "monitor","metric": "Gauge"},
       "help": "Performance result"
+    },
+    {
+      "name": "configration",
+      "type": "drift",
+      "command": "python",
+      "unique": "app.name, app.dbconnection, app.dbconnection.url, app.dbconnection.username",
+      "options": ["./scripts/configDrift.py"],
+      "labels": {"type": "monitor","metric": "Gauge"},
+      "help": "check status of the configrations 0 = OK | 1 = Missing/Different then expected"
     }
   ]
 }
