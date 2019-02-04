@@ -172,12 +172,13 @@ func SetupStorage(ConfigObject *Config, serviceType string, dbFile string) {
 }
 
 func AggregateData(ConfigObject *Config, aggregateFile string, serviceType string) {
-	ConfigObject.Lock()
 	serviceTypeUrl := ConfigObject.DataDir + "/" + serviceType
 	aggregateResultFile := ConfigObject.DataDir + "/" + aggregateFile
+	aggregateResultTmpFile := ConfigObject.DataDir + "/" + aggregateFile + "_tmp"
+
 	fmt.Println(aggregateResultFile)
 	// Open file to add specific server
-	aggregateResultFileDescriptor, err := os.OpenFile(aggregateResultFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0755)
+	aggregateResultFileDescriptor, err := os.OpenFile(aggregateResultTmpFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0755)
 	CheckError(err)
 	WBuffer := bufio.NewWriter(aggregateResultFileDescriptor)
 	defer aggregateResultFileDescriptor.Close()
@@ -214,6 +215,20 @@ func AggregateData(ConfigObject *Config, aggregateFile string, serviceType strin
 			CheckError(err)
 		}
 	}
+	ConfigObject.Lock()
+	input, err := ioutil.ReadFile(aggregateResultTmpFile)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	os.Remove(aggregateResultFile)
+	err = ioutil.WriteFile(aggregateResultFile, input, 0755)
+	if err != nil {
+		fmt.Println("Error creating", aggregateResultFile)
+		fmt.Println(err)
+		return
+	}
+	os.Remove(aggregateResultTmpFile)
 	ConfigObject.Unlock()
 }
 

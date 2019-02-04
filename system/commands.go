@@ -128,11 +128,11 @@ func (cache *ReturnStruct) Get() map[string]string {
 	cache.RLock()
 	defer cache.RUnlock()
 	// Deep copy in order to return different memory location for map read operation.
-	// var readCache = make(map[string]string)
-	// for key, value := range cache.Result {
-	// 	readCache[key] = value
-	// }
-	return cache.Result
+	var readCache = make(map[string]string)
+	for key, value := range cache.Result {
+		readCache[key] = value
+	}
+	return readCache
 }
 
 // SafeRead data from cache

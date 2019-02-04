@@ -28,10 +28,8 @@ type configHandler struct {
 
 func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 	jsonConfig := CTX.ConfigObject.JsonConfig
-	//monitoringResult := ConfigObject.cache.Get()
+	monitoringResult := CTX.ConfigObject.Cache.Get()
 
-	//Lock before read
-	CTX.ConfigObject.Cache.RLock()
 	var d, s string
 	//var serviceStatus string
 	for _, commands := range jsonConfig.Commands {
@@ -48,13 +46,13 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 		d += s + "\n"
 		uniqueTag := strings.Split(unique, ",")
 
-		commandresult := CTX.ConfigObject.Cache.Result[saveas+"Result"]
+		commandresult := monitoringResult[saveas+"Result"]
 		results := strings.Split(commandresult, "\n")
 		tag := ""
 
 		//fmt.Println(data.Result)
 		// status could be 0, 1 ,2 or 3 in case of monitoring
-		serviceStatus := CTX.ConfigObject.Cache.Result[saveas]
+		serviceStatus := monitoringResult[saveas]
 		outputPerTag := ""
 		skip := false
 
@@ -149,8 +147,11 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 		// }
 	}
 
+	//Lock before read
+	CTX.ConfigObject.Cache.RLock()
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil && CTX.ConfigObject.JsonConfig.LocalMetrics.Enable {
+
 		file, err := ioutil.ReadFile(CTX.ConfigObject.DataDir + "/aggregateLocal.db")
 		checkError(err)
 		w.Write(file)
