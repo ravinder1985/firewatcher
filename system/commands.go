@@ -57,8 +57,11 @@ type Marathon struct {
 
 // App to get data from DCOS
 type Apps struct {
-	Id   string
-	Port string
+	Name   string
+	Id     string
+	Port   string
+	Path   string
+	Unique string
 }
 
 // Commands has commands onject

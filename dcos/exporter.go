@@ -297,7 +297,10 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			} else {
 				fmt.Println("No need to login again........")
 			}
+
 			if skip != true {
+				ConfigObject.TW.Add(1)
+				go common.UrlScrape(ConfigObject, i, list)
 				fmt.Println("List of ips for ", appID, list)
 				resultTmpDir := strings.Replace(appID, "/", "_", -1)
 
@@ -311,6 +314,7 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			}
 		}
 		ConfigObject.TW.Wait()
+		common.AggregateData(ConfigObject, "aggregateDcosApps.db", "dcos_apps")
 		common.AggregateData(ConfigObject, aggregateFile, serviceType)
 		<-time.After(time.Duration(duration) * time.Second)
 	}

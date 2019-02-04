@@ -150,10 +150,17 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	file, err := ioutil.ReadFile(CTX.ConfigObject.DataDir + "/aggregateLocal.db")
-	checkError(err)
+	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil && CTX.ConfigObject.JsonConfig.LocalMetrics.Enable {
+		file, err := ioutil.ReadFile(CTX.ConfigObject.DataDir + "/aggregateLocal.db")
+		checkError(err)
+		w.Write(file)
+	}
+	if CTX.ConfigObject.JsonConfig.ServiceDiscovery != nil && CTX.ConfigObject.JsonConfig.ServiceDiscovery.Enable {
+		dcosAppFile, err := ioutil.ReadFile(CTX.ConfigObject.DataDir + "/aggregateDcosApps.db")
+		checkError(err)
+		w.Write(dcosAppFile)
+	}
 	w.Write([]byte(d))
-	w.Write(file)
 	// Release the lock
 	CTX.ConfigObject.Cache.RUnlock()
 }
@@ -266,18 +273,20 @@ func main() {
 	checkError(err)
 	if CTX.ConfigObject.JsonConfig.ServiceDiscovery != nil && CTX.ConfigObject.JsonConfig.ServiceDiscovery.Enable {
 		CTX.ConfigObject.ServicesEndpoints.InitializeMemory()
+		common.SetupStorage(&CTX.ConfigObject, "dcos_apps", "aggregateDcosApps.db")
 		go dcos.PollDCOS(&CTX.ConfigObject, "aggregateResult.db", true)
 	}
 	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil && CTX.ConfigObject.JsonConfig.LocalMetrics.Enable {
+		dirType := "local"
+		if CTX.ConfigObject.JsonConfig.LocalMetrics != nil {
+			dirType = CTX.ConfigObject.JsonConfig.LocalMetrics.Type
+		}
+		common.SetupStorage(&CTX.ConfigObject, dirType, "aggregateLocal.db")
 		go dcos.PollLocal(&CTX.ConfigObject, "aggregateLocal.db", true)
 	}
 	forever := true
 	CTX.ConfigObject.Cache.InitializeMemory()
-	dirType := "local"
-	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil {
-		dirType = CTX.ConfigObject.JsonConfig.LocalMetrics.Type
-	}
-	common.SetupStorage(&CTX.ConfigObject, dirType, "aggregateLocal.db")
+
 	go system.Poll(&CTX.ConfigObject.Cache, CTX.ConfigObject.JsonConfig, forever)
 	http.HandleFunc("/", CTX.home)
 	http.HandleFunc("/metrics", CTX.metrics)

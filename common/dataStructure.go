@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -63,16 +64,6 @@ func (sEndpointMap *ServicesEndpoints) unlock() {
 	sEndpointMap.Unlock()
 }
 
-// ServiceDiscovery to get data from DCOS
-type ServiceDiscovery struct {
-	Enable          bool
-	Scrape_interval int
-	Type            string
-	Login           Login
-	Marathon        Marathon
-	Apps            []Apps
-}
-
 // Urls to get data from DCOS
 type Urls struct {
 	Name string
@@ -89,12 +80,6 @@ type Login struct {
 // Marathon to get data from DCOS
 type Marathon struct {
 	Url string
-}
-
-// App to get data from DCOS
-type Apps struct {
-	Id   string
-	Port string
 }
 
 type LoginResult struct {
@@ -331,4 +316,82 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 		}
 	}
 	defer CO.TW.Done()
+}
+
+// getValue would be used to get values from recursive json file.
+func getValue(result map[string]interface{}, tag string) float64 {
+	deepvalues := strings.Split(tag, ".")
+	value := 0.0
+	if len(deepvalues) > 1 {
+		t := strings.TrimSpace(deepvalues[0])
+		newTag := strings.Replace(tag, t+".", "", 1)
+		value = getValue(result[t].(map[string]interface{}), newTag)
+	}
+	trimmedTag := strings.TrimSpace(tag)
+	if result[trimmedTag] != nil {
+		return result[trimmedTag].(float64)
+	}
+	return value
+}
+
+// WriteToTmpFile method to read config file
+func WriteToTmpFile(ConfigObject *Config, serviceType string, resultTmpDir string, data []byte) {
+	//Create a temp dir in the system default temp folder
+	tempDirPath, err := ioutil.TempDir(ConfigObject.DataDir+"/"+serviceType, "TMP_"+resultTmpDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Temp dir created:", tempDirPath)
+	//fmt.Println(ConfigObject.dataDir)
+	// Create a file in new temp directory
+	tempFile, err := ioutil.TempFile(tempDirPath, "TMP_"+resultTmpDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	filename := tempFile.Name()
+	fmt.Println("Temp file created:", tempFile.Name())
+	// Write to the file
+	err = ioutil.WriteFile(filename, data, 0744)
+	CheckError(err)
+}
+
+func UrlScrape(ConfigObject *Config, location int, list []string) {
+	defer ConfigObject.TW.Done()
+	data := ""
+	name := ConfigObject.JsonConfig.ServiceDiscovery.Apps[location].Name
+	appId := ConfigObject.JsonConfig.ServiceDiscovery.Apps[location].Id
+	appPath := ConfigObject.JsonConfig.ServiceDiscovery.Apps[location].Path
+	appUnique := ConfigObject.JsonConfig.ServiceDiscovery.Apps[location].Unique
+	//saveas := appId + appUnique
+	client := http.Client{}
+	for index := range list {
+
+		request, err := http.NewRequest("GET", "http://"+list[index]+""+appPath+"", nil)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Println("--------------------- " + appUnique + " -----------------------")
+		resp, err := client.Do(request)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if resp != nil {
+			var result map[string]interface{}
+			json.NewDecoder(resp.Body).Decode(&result)
+			uniqueTag := strings.Split(appUnique, ",")
+			d := ""
+			tag := ""
+			for _, commandTags := range uniqueTag {
+				commandTagTrimmed := strings.TrimSpace(commandTags)
+				tagValue := getValue(result, commandTags)
+				// Open file to add specific server
+				d += name + `{id="` + appId + `",url="` + list[index] + appPath + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + fmt.Sprintf("%f", tagValue) + ``
+				d += "\n"
+			}
+			data += d + "\n"
+		}
+	}
+	WriteToTmpFile(ConfigObject, "dcos_apps", name, []byte(data))
+	data = ""
 }
