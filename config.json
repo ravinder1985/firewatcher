@@ -19,8 +19,11 @@
         "port": "9096"
       },
       {
+        "name": "someapp",
         "id": "appID",
-        "port": "9097"
+        "port": "9097",
+        "path": "/api/v1/endpoint",
+        "unique": "UsedPercent, ram, FreePercent, ActualUsed, ActualFree"
       }
     ]
   },
