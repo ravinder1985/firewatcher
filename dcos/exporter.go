@@ -276,6 +276,8 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			appID := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Id
 			url := ConfigObject.JsonConfig.ServiceDiscovery.Marathon.Url + "/" + appID
 			appPort := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Port
+			appPath := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Path
+			appUnique := ConfigObject.JsonConfig.ServiceDiscovery.Apps[i].Unique
 			list, err := GetServiceList(token, url, appPort, appID, hrc)
 			if err != nil {
 				//fmt.Println(err.Error())
@@ -300,7 +302,10 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 
 			if skip != true {
 				ConfigObject.TW.Add(1)
-				go common.UrlScrape(ConfigObject, i, list)
+				fmt.Println(appUnique)
+				if appUnique != "" && appPath != "" {
+					go common.UrlScrape(ConfigObject, i, list)
+				}
 				fmt.Println("List of ips for ", appID, list)
 				resultTmpDir := strings.Replace(appID, "/", "_", -1)
 
