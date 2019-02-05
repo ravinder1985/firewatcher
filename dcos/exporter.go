@@ -73,94 +73,7 @@ func DCOSLogin(jsonConfig *system.JSON, remote common.DCOSCalls) string {
 	} else {
 		return ""
 	}
-	// var jsonData = []byte(`{"uid": "` + username + `", "password": "` + password + `"}`)
-	// req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	// req.Header.Add("Accept", "application/json")
-	// req.Header.Add("Content-type", "application/json")
-	// resp, err := client.Do(req)
-	// if e, ok := err.(net.Error); ok && e.Timeout() {
-	// 	fmt.Println("Error: DCOSLogin Http request timeout...")
-	// 	fmt.Println("------------ Try again in next cycle ------------")
-	// 	skip = true
-	// } else {
-	// 	common.CheckError(err)
-	// }
-	// if skip != true {
-	// 	defer resp.Body.Close()
-	// 	var result common.LoginResult
-	// 	err = json.NewDecoder(resp.Body).Decode(&result)
-	// 	common.CheckError(err)
-	// 	return result.Token
-	// } else {
-	// 	return ""
-	// }
 }
-
-// // Login to get token
-// func (httpcalls) Login(url string, username string, password string) string {
-// 	skip := false
-// 	timeout := time.Duration(5 * time.Second)
-// 	client := http.Client{
-// 		Timeout: timeout,
-// 	}
-// 	var jsonData = []byte(`{"uid": "` + username + `", "password": "` + password + `"}`)
-// 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-// 	req.Header.Add("Accept", "application/json")
-// 	req.Header.Add("Content-type", "application/json")
-// 	resp, err := client.Do(req)
-// 	if e, ok := err.(net.Error); ok && e.Timeout() {
-// 		fmt.Println("Error: DCOSLogin Http request timeout...")
-// 		fmt.Println("------------ Try again in next cycle ------------")
-// 		skip = true
-// 	} else {
-// 		common.CheckError(err)
-// 	}
-// 	if skip != true {
-// 		defer resp.Body.Close()
-// 		var result common.LoginResult
-// 		err = json.NewDecoder(resp.Body).Decode(&result)
-// 		common.CheckError(err)
-// 		return result.Token
-// 	} else {
-// 		return ""
-// 	}
-// }
-//
-// // DCOSLogin method returns a login token.
-// func DCOSLogin(jsonConfig *system.JSON, remote common.DCOSCalls) string {
-// 	url := jsonConfig.ServiceDiscovery.Login.Url
-// 	username := jsonConfig.ServiceDiscovery.Login.Username
-// 	password := jsonConfig.ServiceDiscovery.Login.Password
-//
-// 	if username == "" {
-// 		username = os.Getenv("USERNAME")
-// 	}
-// 	if password == "" {
-// 		password = os.Getenv("PASSWORD")
-// 	}
-// 	return remote.Login(url, username, password)
-// 	// var jsonData = []byte(`{"uid": "` + username + `", "password": "` + password + `"}`)
-// 	// req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-// 	// req.Header.Add("Accept", "application/json")
-// 	// req.Header.Add("Content-type", "application/json")
-// 	// resp, err := client.Do(req)
-// 	// if e, ok := err.(net.Error); ok && e.Timeout() {
-// 	// 	fmt.Println("Error: DCOSLogin Http request timeout...")
-// 	// 	fmt.Println("------------ Try again in next cycle ------------")
-// 	// 	skip = true
-// 	// } else {
-// 	// 	common.CheckError(err)
-// 	// }
-// 	// if skip != true {
-// 	// 	defer resp.Body.Close()
-// 	// 	var result common.LoginResult
-// 	// 	err = json.NewDecoder(resp.Body).Decode(&result)
-// 	// 	common.CheckError(err)
-// 	// 	return result.Token
-// 	// } else {
-// 	// 	return ""
-// 	// }
-// }
 
 // Login to get token
 func (httpcalls) ServiceDiscovery(token string, url string, client http.Client) (*http.Response, error) {
@@ -319,8 +232,11 @@ func PollDCOS(ConfigObject *common.Config, aggregateFile string, forever bool) {
 			}
 		}
 		ConfigObject.TW.Wait()
-		common.AggregateData(ConfigObject, "aggregateDcosApps.db", "dcos_apps")
-		common.AggregateData(ConfigObject, aggregateFile, serviceType)
+		ConfigObject.TW.Add(1)
+		go common.AggregateData(ConfigObject, "aggregateDcosApps.db", "dcos_apps")
+		ConfigObject.TW.Add(1)
+		go common.AggregateData(ConfigObject, aggregateFile, serviceType)
+		ConfigObject.TW.Wait()
 		<-time.After(time.Duration(duration) * time.Second)
 	}
 }
@@ -345,7 +261,9 @@ func PollLocal(ConfigObject *common.Config, aggregateFile string, forever bool) 
 			go common.ScrapeMetrics(ConfigObject, url, serviceType, resultTmpDir, ConfigObject, appID, hrc)
 		}
 		ConfigObject.TW.Wait()
-		common.AggregateData(ConfigObject, aggregateFile, serviceType)
+		ConfigObject.TW.Add(1)
+		go common.AggregateData(ConfigObject, aggregateFile, serviceType)
+		ConfigObject.TW.Wait()
 		<-time.After(time.Duration(duration) * time.Second)
 	}
 }

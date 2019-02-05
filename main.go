@@ -71,16 +71,6 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 						if commandOutputUpper0 != "RESULT" {
 							if !strings.Contains(commandOutputUpper0, "RESULT") {
 								tagsFromScript := commandOutput[0]
-								// if strings.Contains(commandOutputUpper0, commandTagUpper) {
-								// 	tagSetByScript = true
-								// 	tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
-								// 	tagsFromScript = tagValues
-								// 	tag += ","
-								// 	tag += tagsFromScript + `="` + commandOutputTrimmed1 + `"`
-								// } else if strings.Contains(commandOutputUpper0, "Tag_") {
-								//
-								// }
-
 								if strings.Contains(commandOutputUpper0, "TAG_") && strings.Contains(commandOutputUpper0, commandTagUpper) {
 									tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
 									tagsFromScript = tagValues
@@ -132,26 +122,15 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 			d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + serviceStatus + ``
 			d += "\n"
 		}
-
-		//name := commands.Name
-
-		// switch strings.TrimSpace(string(data.Result[commands.Name])) {
-		// case "0":
-		// 	d += name + `{type="` + commands.Lables.Type + `",status="OK"} ` + string(data.Result[commands.Name]) + ``
-		// case "1":
-		// 	d += name + `{type="` + commands.Lables.Type + `",status="WARNING"} ` + string(data.Result[commands.Name]) + ``
-		// case "2":
-		// 	d += name + `{type="` + commands.Lables.Type + `",status="CRITICAL"} ` + string(data.Result[commands.Name]) + ``
-		// default:
-		// 	d += name + `{type="` + commands.Lables.Type + `",status="UNKNOWN"} ` + string(data.Result[commands.Name]) + ``
-		// }
 	}
 
 	//Lock before read
 	CTX.ConfigObject.Cache.RLock()
+	// Release the lock
+	defer CTX.ConfigObject.Cache.RUnlock()
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if CTX.ConfigObject.JsonConfig.LocalMetrics != nil && CTX.ConfigObject.JsonConfig.LocalMetrics.Enable {
-
 		file, err := ioutil.ReadFile(CTX.ConfigObject.DataDir + "/aggregateLocal.db")
 		checkError(err)
 		w.Write(file)
@@ -162,8 +141,6 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 		w.Write(dcosAppFile)
 	}
 	w.Write([]byte(d))
-	// Release the lock
-	CTX.ConfigObject.Cache.RUnlock()
 }
 
 func (CTX *configHandler) home(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -172,6 +173,7 @@ func SetupStorage(ConfigObject *Config, serviceType string, dbFile string) {
 }
 
 func AggregateData(ConfigObject *Config, aggregateFile string, serviceType string) {
+	defer ConfigObject.TW.Done()
 	serviceTypeUrl := ConfigObject.DataDir + "/" + serviceType
 	aggregateResultFile := ConfigObject.DataDir + "/" + aggregateFile
 	aggregateResultTmpFile := ConfigObject.DataDir + "/" + aggregateFile + "_tmp"
@@ -216,19 +218,7 @@ func AggregateData(ConfigObject *Config, aggregateFile string, serviceType strin
 		}
 	}
 	ConfigObject.Lock()
-	input, err := ioutil.ReadFile(aggregateResultTmpFile)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	os.Remove(aggregateResultFile)
-	err = ioutil.WriteFile(aggregateResultFile, input, 0755)
-	if err != nil {
-		fmt.Println("Error creating", aggregateResultFile)
-		fmt.Println(err)
-		return
-	}
-	os.Remove(aggregateResultTmpFile)
+	os.Rename(aggregateResultTmpFile, aggregateResultFile)
 	ConfigObject.Unlock()
 }
 
@@ -305,17 +295,21 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 		Timeout: timeout,
 	}
 	resp, err := remote.PrometheusMetricsScrape(url, client)
-	if resp != nil && resp.StatusCode == 404 {
-		fmt.Println("Error: endpoint " + url + " Does not exist...")
-		fmt.Println("------------ Fix your Configrations ------------")
-		skip = true
-	}
-	if e, ok := err.(net.Error); ok && e.Timeout() {
-		fmt.Println("Error: Http request timeout...")
-		fmt.Println("------------ Try again in next cycle ------------")
-		skip = true
+	if resp != nil {
+		if resp.StatusCode == 404 {
+			fmt.Println("Error: endpoint " + url + " Does not exist...")
+			fmt.Println("------------ Fix your Configrations ------------")
+			skip = true
+		}
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			fmt.Println("Error: Http request timeout...")
+			fmt.Println("------------ Try again in next cycle ------------")
+			skip = true
+		} else {
+			CheckError(err)
+		}
 	} else {
-		CheckError(err)
+		skip = true
 	}
 	if skip != true {
 		body, err := ioutil.ReadAll(resp.Body)
@@ -340,7 +334,12 @@ func getValue(result map[string]interface{}, tag string) float64 {
 	if len(deepvalues) > 1 {
 		t := strings.TrimSpace(deepvalues[0])
 		newTag := strings.Replace(tag, t+".", "", 1)
-		value = getValue(result[t].(map[string]interface{}), newTag)
+		// This is to protect from the wrong configs
+		if reflect.ValueOf(result[t]).Kind() == reflect.Map {
+			value = getValue(result[t].(map[string]interface{}), newTag)
+		} else {
+			return 0
+		}
 	}
 	trimmedTag := strings.TrimSpace(tag)
 	if result[trimmedTag] != nil {
