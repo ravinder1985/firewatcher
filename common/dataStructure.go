@@ -380,17 +380,13 @@ func UrlScrape(ConfigObject *Config, location int, list []string) {
 	client := http.Client{}
 	for index := range list {
 
-		request, err := http.NewRequest("GET", "http://"+list[index]+""+appPath+"", nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		fmt.Println("--------------------- " + appUnique + " -----------------------")
+		request, _ := http.NewRequest("GET", "http://"+list[index]+""+appPath+"", nil)
 		resp, err := client.Do(request)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
 		if resp != nil {
+			fmt.Println("--------------------- " + appUnique + " -----------------------")
+			if err != nil {
+				log.Fatalln(err)
+			}
 			var result map[string]interface{}
 			json.NewDecoder(resp.Body).Decode(&result)
 			uniqueTag := strings.Split(appUnique, ",")
@@ -404,6 +400,8 @@ func UrlScrape(ConfigObject *Config, location int, list []string) {
 				d += "\n"
 			}
 			data += d + "\n"
+		} else {
+			fmt.Println("--------------------- failed to make GET call to " + "http://" + list[index] + "" + appPath + "" + " -----------------------")
 		}
 	}
 	WriteToTmpFile(ConfigObject, "dcos_apps", name, []byte(data))
