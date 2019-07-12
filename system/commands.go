@@ -2,8 +2,10 @@ package system
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,9 +16,10 @@ import (
 type JSON struct {
 	Duration         int
 	Port             string
+	Commands         []Commands
 	ServiceDiscovery *ServiceDiscovery
 	LocalMetrics     *LocalMetrics
-	Commands         []Commands
+	Watcher          *Watcher
 }
 
 // ServiceDiscovery to get data from DCOS
@@ -35,6 +38,50 @@ type LocalMetrics struct {
 	Scrape_interval int
 	Type            string
 	Urls            []Urls
+}
+
+// Watcher to monitor and take action
+type Watcher struct {
+	Enable          bool
+	Scrape_interval int
+	Monitor         []*Monitor
+}
+
+// HTTP to get data from DCOS
+type Monitor struct {
+	Name    *string
+	URL     *string
+	Command *string
+	Options []string
+	Key     *string
+	Rules   *Rules
+}
+
+//Rules structure would hold the data for runbooks
+type Rules struct {
+	Type      *string
+	Condition *string
+	Threshold *int
+	Compare   *string
+	FALSE     *Execution
+	TRUE      *Execution
+	GTE       *Execution
+	LTE       *Execution
+	LT        *Execution
+	GT        *Execution
+	EQ        *Execution
+	NEQ       *Execution
+}
+
+// Action to take action when confition is false
+type Execution struct {
+	Type    string
+	Times   int
+	Action  string
+	URL     string
+	Command *string
+	Options []string
+	Payload string
 }
 
 // Urls to get data from DCOS
@@ -215,4 +262,20 @@ func executeCommand(commands Commands, cache *ReturnStruct, id int) {
 	cache.Set(saveas+"Result", strings.TrimSpace(out.String()))
 	atomic.AddUint64(&cache.Write, 1)
 	log.Println("------ Thread id: ", id, " Completed: ", options, " ------")
+}
+
+// ExecuteCommandForWatcher ...
+func ExecuteCommandForWatcher(command string, options []string) int {
+	cmd := exec.Command(command, options...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		exitCode := string(err.Error())
+		fmt.Println(exitCode)
+		errorList := strings.Split(exitCode, " ")
+		returnValue, _ := strconv.Atoi(errorList[len(errorList)-1])
+		return returnValue
+	}
+	fmt.Println("Script output: ", out.String())
+	return 0
 }

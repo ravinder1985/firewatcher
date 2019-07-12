@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,6 +22,118 @@ func CheckError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// HTTP interface to handle http calls
+type HTTP interface {
+	Get(string, []byte, http.Client) (*http.Response, error)
+	Action(string, string, string)
+}
+
+//Watcher ...
+type Watcher struct {
+	sync.RWMutex
+	TW       sync.WaitGroup
+	Events   chan system.Execution
+	Cache    map[string]Status
+	Response map[string]map[string]interface{}
+}
+
+// InitializeMemory ...
+func (wData *Watcher) InitializeMemory() {
+	wData.Lock()
+	defer wData.Unlock()
+	if wData.Cache == nil {
+		log.Println("Initialize memory for the watcher")
+		wData.Cache = make(map[string]Status, 1)
+		wData.Response = make(map[string]map[string]interface{}, 1)
+		wData.Events = make(chan system.Execution, 10)
+	}
+}
+
+// HTTPGet ..
+func (wData *Watcher) HTTPGet(url string) map[string]interface{} {
+	var result map[string]interface{}
+	timeout := time.Duration(5 * time.Second)
+	client := http.Client{
+		Timeout: timeout,
+	}
+	req, _ := http.NewRequest("GET", url, nil)
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return result
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	defer resp.Body.Close()
+	return result
+}
+
+//Action ..
+func (wData *Watcher) Action(execution *system.Execution) bool {
+	switch strings.ToUpper(execution.Type) {
+	case "HTTP":
+		url := execution.URL
+		action := execution.Action
+		payload := execution.Payload
+		timeout := time.Duration(5 * time.Second)
+		client := http.Client{
+			Timeout: timeout,
+		}
+		verbe := strings.ToUpper(action)
+		ToBytes := []byte(payload)
+		fmt.Println("######## taking action #########", url, verbe, payload)
+		req, _ := http.NewRequest(verbe, url, bytes.NewBuffer(ToBytes))
+		req.Header.Add("Content-type", "application/json")
+		resp, err := client.Do(req)
+		// if e, ok := err.(net.Error); ok && e.Timeout() {
+		// 	fmt.Println(err)
+		// 	return false
+		// }
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+		defer resp.Body.Close()
+		fmt.Println(resp)
+		return true
+	case "SCRIPT":
+		command := *execution.Command
+		option := execution.Options
+		returnCode := system.ExecuteCommandForWatcher(command, option)
+		if returnCode == 0 {
+			return true
+		}
+		return false
+	default:
+		fmt.Println(execution.Type, "Action is not supported")
+		return false
+	}
+}
+
+// Get data from Watcher
+func (wData *Watcher) Get() map[string]map[string]interface{} {
+	wData.RLock()
+	defer wData.RUnlock()
+	return wData.Response
+}
+
+// GetApp data from Watcher
+func (wData *Watcher) GetApp(appID string) map[string]interface{} {
+	wData.RLock()
+	appID = strings.Replace(appID, "/", "", 1)
+	fmt.Println(appID)
+	defer wData.RUnlock()
+	return wData.Response[appID]
+}
+
+// Status would store information regartiong state and action
+type Status struct {
+	LastState string
+	Count     int
 }
 
 //ServicesEndpoints to expose
@@ -134,6 +247,7 @@ type Config struct {
 	sync.RWMutex
 	TW                sync.WaitGroup
 	Cache             system.ReturnStruct
+	Watcher           Watcher
 	JsonConfig        system.JSON
 	ServicesEndpoints ServicesEndpoints
 	WorkingDir        *string
@@ -327,8 +441,8 @@ func ScrapeMetrics(ConfigObject *Config, url string, serviceType string, resultT
 	defer CO.TW.Done()
 }
 
-// getValue would be used to get values from recursive json file.
-func getValue(result map[string]interface{}, tag string) float64 {
+// GetValue would be used to get values from recursive json file.
+func GetValue(result map[string]interface{}, tag string) float64 {
 	deepvalues := strings.Split(tag, ".")
 	value := 0.0
 	if len(deepvalues) > 1 {
@@ -336,7 +450,7 @@ func getValue(result map[string]interface{}, tag string) float64 {
 		newTag := strings.Replace(tag, t+".", "", 1)
 		// This is to protect from the wrong configs
 		if reflect.ValueOf(result[t]).Kind() == reflect.Map {
-			value = getValue(result[t].(map[string]interface{}), newTag)
+			value = GetValue(result[t].(map[string]interface{}), newTag)
 		} else {
 			return 0
 		}
@@ -344,6 +458,48 @@ func getValue(result map[string]interface{}, tag string) float64 {
 	trimmedTag := strings.TrimSpace(tag)
 	if result[trimmedTag] != nil {
 		return result[trimmedTag].(float64)
+	}
+	return value
+}
+
+// GetStringValue would be used to get values from recursive json file.
+func GetStringValue(result map[string]interface{}, tag string) string {
+	deepvalues := strings.Split(tag, ".")
+	var value string
+	if len(deepvalues) > 1 {
+		t := strings.TrimSpace(deepvalues[0])
+		newTag := strings.Replace(tag, t+".", "", 1)
+		// This is to protect from the wrong configs
+		if reflect.ValueOf(result[t]).Kind() == reflect.Map {
+			value = GetStringValue(result[t].(map[string]interface{}), newTag)
+		} else {
+			return ""
+		}
+	}
+	trimmedTag := strings.TrimSpace(tag)
+	if result[trimmedTag] != nil {
+		return result[trimmedTag].(string)
+	}
+	return value
+}
+
+// GetBoolValue would be used to get values from recursive json file.
+func GetBoolValue(result map[string]interface{}, tag string) bool {
+	deepvalues := strings.Split(tag, ".")
+	var value bool
+	if len(deepvalues) > 1 {
+		t := strings.TrimSpace(deepvalues[0])
+		newTag := strings.Replace(tag, t+".", "", 1)
+		// This is to protect from the wrong configs
+		if reflect.ValueOf(result[t]).Kind() == reflect.Map {
+			value = GetBoolValue(result[t].(map[string]interface{}), newTag)
+		} else {
+			return true
+		}
+	}
+	trimmedTag := strings.TrimSpace(tag)
+	if result[trimmedTag] != nil {
+		return result[trimmedTag].(bool)
 	}
 	return value
 }
@@ -394,7 +550,7 @@ func UrlScrape(ConfigObject *Config, location int, list []string) {
 			tag := ""
 			for _, commandTags := range uniqueTag {
 				commandTagTrimmed := strings.TrimSpace(commandTags)
-				tagValue := getValue(result, commandTags)
+				tagValue := GetValue(result, commandTags)
 				// Open file to add specific server
 				d += name + `{id="` + appId + `",url="` + list[index] + appPath + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + fmt.Sprintf("%f", tagValue) + ``
 				d += "\n"

@@ -13,6 +13,7 @@ import (
 	"github.com/firewatcher/common"
 	"github.com/firewatcher/dcos"
 	"github.com/firewatcher/system"
+	"github.com/firewatcher/watcher"
 )
 
 func checkError(err error) {
@@ -187,6 +188,26 @@ func (CTX *configHandler) serviceDiscovery(w http.ResponseWriter, r *http.Reques
 	w.Write(js)
 }
 
+func (CTX *configHandler) watcher(w http.ResponseWriter, r *http.Request) {
+	appID := strings.Replace(r.RequestURI, "/watcher", "", 1)
+	var js []byte
+	var err error
+	fmt.Println(appID)
+
+	if appID == "/" {
+		js, err = json.Marshal(CTX.ConfigObject.Watcher.Get())
+	} else {
+		js, err = json.Marshal(CTX.ConfigObject.Watcher.GetApp(appID))
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
 func parseConfig(ConfigFile string, config common.ReadConfig) (system.JSON, error) {
 	// pwd, _ := os.Getwd()
 	// var filename = "/config.json"
@@ -262,13 +283,17 @@ func main() {
 		common.SetupStorage(&CTX.ConfigObject, dirType, "aggregateLocal.db")
 		go dcos.PollLocal(&CTX.ConfigObject, "aggregateLocal.db", true)
 	}
+	// fmt.Println(CTX.ConfigObject.JsonConfig.Watcher.HTTP[0].Rules.FALSE)
 	forever := true
 	CTX.ConfigObject.Cache.InitializeMemory()
+	CTX.ConfigObject.Watcher.InitializeMemory()
 
 	go system.Poll(&CTX.ConfigObject.Cache, CTX.ConfigObject.JsonConfig, forever)
+	go watcher.Poll(&CTX.ConfigObject, forever)
 	http.HandleFunc("/", CTX.home)
 	http.HandleFunc("/metrics", CTX.metrics)
 	http.HandleFunc("/dcosmetrics", CTX.dcosmetrics)
 	http.HandleFunc("/servicediscovery/", CTX.serviceDiscovery)
+	http.HandleFunc("/watcher/", CTX.watcher)
 	http.ListenAndServe(":"+CTX.ConfigObject.JsonConfig.Port, nil)
 }
