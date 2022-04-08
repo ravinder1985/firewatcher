@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
 	"sync/atomic"
 
 	"github.com/firewatcher/common"
@@ -37,11 +38,11 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 		unique := commands.Unique
 		saveas := commands.Name + unique
 		metric := "Untyped"
-		if commands.Lables.Metric != "" {
-			metric = commands.Lables.Metric
+		if commands.Lables["metric"] != "" {
+			metric = commands.Lables["metric"]
 		}
 
-		name := commands.Name + "_" + commands.Type
+		name := commands.Name
 		s = "\n# HELP " + name + " " + commands.Help + "\n"
 		s = s + "# TYPE " + name + " " + metric
 		d += s + "\n"
@@ -71,10 +72,10 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 						commandOutputTrimmed1 := strings.TrimSpace(commandOutput[1])
 						if commandOutputUpper0 != "RESULT" {
 							if !strings.Contains(commandOutputUpper0, "RESULT") {
-								tagsFromScript := commandOutput[0]
+								tagsFromScript := strings.ToLower(commandOutput[0])
 								if strings.Contains(commandOutputUpper0, "TAG_") && strings.Contains(commandOutputUpper0, commandTagUpper) {
 									tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
-									tagsFromScript = tagValues
+									tagsFromScript = strings.ToLower(tagValues)
 									tag += ","
 									tag += tagsFromScript + `="` + commandOutputTrimmed1 + `"`
 								} else {
@@ -92,6 +93,11 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
+				// Add all the tag
+				for k, v := range commands.Lables {
+					tag += ","
+					tag += k + `="` + v + `"`
+				}
 				if numberOfTags > 1 && outputPerTag == "" {
 					skip = true
 				}
@@ -100,7 +106,7 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 					outputPerTag = ""
 				}
 				if !skip {
-					d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + serviceStatus + ``
+					d += name + `{type="` + commands.Lables["type"] + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + serviceStatus + ``
 					d += "\n"
 				}
 			}
@@ -120,7 +126,12 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			d += name + `{type="` + commands.Lables.Type + `",app="` + commands.Name + `"` + tag + `} ` + serviceStatus + ``
+			// Add all the tag
+			for k, v := range commands.Lables {
+				tag += ","
+				tag += k + `="` + v + `"`
+			}
+			d += name + `{type="` + commands.Lables["type"] + `"` + tag + `} ` + serviceStatus + ``
 			d += "\n"
 		}
 	}
@@ -247,6 +258,7 @@ func parseConfig(ConfigFile string, config common.ReadConfig) (system.JSON, erro
 // }
 
 func main() {
+
 	// ConfigObject keep the configs and data in it
 	// var ConfigObject common.Config
 	// Default config file name is config.json

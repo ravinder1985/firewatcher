@@ -1,5 +1,5 @@
 {
-  "duration": 10,
+  "duration": 60,
   "port": "8080",
   "serviceDiscovery": {
     "enable": false,
@@ -13,7 +13,7 @@
     "marathon": {
       "url": "http://merathonURL:8080/v2/apps"
     },
-    "apps":[
+    "apps": [
       {
         "id": "appID",
         "port": "9096"
@@ -31,12 +31,16 @@
     "enable": false,
     "scrape_interval": 30,
     "type": "local",
-    "urls":[
+    "urls": [
       {
         "name": "cassandra_jmx",
         "url": "http://127.0.0.1:7070/metrics"
       }
     ]
+  },
+  "watcher": {
+    "enable": false,
+    "scrape_interval": 30
   },
   "commands": [
     {
@@ -44,16 +48,31 @@
       "type": "service",
       "command": "sh",
       "unique": "2",
-      "options": ["./scripts/checkSpace.sh", "2"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/checkSpace.sh",
+        "2"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge",
+        "env": "dev"
+      },
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
       "name": "haproxy",
       "type": "service",
       "command": "sh",
-      "options": ["./scripts/haproxy.sh", "1"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/haproxy.sh",
+        "1"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge",
+        "env": "dev",
+        "another": "test"
+      },
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
@@ -61,8 +80,14 @@
       "type": "service",
       "command": "sh",
       "unique": "1",
-      "options": ["./scripts/checkSpace.sh", "1"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/checkSpace.sh",
+        "1"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge"
+      },
       "help": "check status of the service 0 = OK | 1 = WARNING | 2 = CRITICAL | 3 = UNKNOWN"
     },
     {
@@ -70,18 +95,44 @@
       "type": "service",
       "command": "sh",
       "unique": "nginx",
-      "options": ["./scripts/nginx.sh", "0"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/nginx.sh",
+        "0"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge"
+      },
       "help": "Performance result"
-    }
-    ,
+    },
     {
       "name": "daemon_check",
       "type": "service",
       "command": "sh",
       "unique": "nginx, docker, cntlm, portworx",
-      "options": ["./scripts/daemon_check.sh"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/daemon_check.sh"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge",
+        "env": "dev"
+      },
+      "help": "Performance result"
+    },
+    {
+      "name": "daemon_check",
+      "type": "service",
+      "command": "sh",
+      "unique": "nginx, docker, cntlm, portworx, prod",
+      "options": [
+        "./scripts/daemon_check.sh"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge",
+        "env": "prod"
+      },
       "help": "Performance result"
     },
     {
@@ -89,8 +140,13 @@
       "type": "status",
       "command": "python",
       "unique": "Miss, Hit, QBSearch",
-      "options": ["./scripts/exposeData.py"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/exposeData.py"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge"
+      },
       "help": "Performance result"
     },
     {
@@ -98,8 +154,14 @@
       "type": "drift",
       "command": "python",
       "unique": "app.name, app.dbconnection, app.dbconnection.url, app.dbconnection.username",
-      "options": ["./scripts/configDrift.py"],
-      "labels": {"type": "monitor","metric": "Gauge"},
+      "options": [
+        "./scripts/configDrift.py"
+      ],
+      "labels": {
+        "type": "monitor",
+        "metric": "Gauge",
+        "application": "configration"
+      },
       "help": "check status of the configrations 0 = OK | 1 = Missing/Different then expected"
     }
   ]

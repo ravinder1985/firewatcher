@@ -29,9 +29,9 @@ func TestPollSuccess(t *testing.T) {
 				Type:    "service",
 				Command: "echo",
 				Options: []string{"success"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},
@@ -59,9 +59,9 @@ func TestExternalCommandSuccess(t *testing.T) {
 				Type:    "service",
 				Command: "echo",
 				Options: []string{"success"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},
@@ -84,9 +84,9 @@ func TestExternalCommandConcurrencySuccess(t *testing.T) {
 				Type:    "service",
 				Command: "echo",
 				Options: []string{"success"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},
@@ -117,9 +117,9 @@ func TestExternalCommandSuccessWithUnique(t *testing.T) {
 				Command: "echo",
 				Unique:  "uniqueValue",
 				Options: []string{"success"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},
@@ -142,9 +142,9 @@ func TestExternalCommandFailed(t *testing.T) {
 				Type:    "service",
 				Command: "sh",
 				Options: []string{"exit", "7"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},
@@ -167,9 +167,9 @@ func TestExternalCommandConcurrencyFailed(t *testing.T) {
 				Type:    "service",
 				Command: "sh",
 				Options: []string{"exit", "7"},
-				Lables: Lables{
-					Type:   "test",
-					Metric: "Untyped",
+				Lables: map[string]string{
+					"Type":   "test",
+					"Metric": "Untyped",
 				},
 			},
 		},

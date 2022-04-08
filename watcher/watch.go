@@ -344,31 +344,35 @@ func MonitorChanges(jsonConfig system.JSON, watcher *common.Watcher) {
 // Poll would parse configs and run them every interval.
 func Poll(config *common.Config, forever bool) {
 	jsonConfig := config.JsonConfig
-	duration := jsonConfig.Watcher.Scrape_interval
+	if jsonConfig.Watcher.Enable {
+		duration := jsonConfig.Watcher.Scrape_interval
 
-	// // Start routine to perform actions
-	// go func(watcher *common.Watcher) {
-	// 	dac := watcher.Events
-	// 	for {
-	// 		select {
-	// 		case data := <-dac:
-	// 			println("------------------")
-	// 			println(data.Times)
-	// 			println(data.Action)
-	// 			println(data.URL)
-	// 			println(data.Payload)
-	// 			println("------------------")
-	// 		case <-time.After(5 * time.Second):
-	// 			println("timeout after 5 sec")
-	// 		}
-	// 	}
-	// }(&config.Watcher)
-	MonitorChanges(jsonConfig, &config.Watcher)
-	if forever == true {
-		for {
-			<-time.After(time.Duration(duration) * time.Second)
-			log.Println("------ Starting Watching check after: ", duration, "second ------")
-			MonitorChanges(jsonConfig, &config.Watcher)
+		// // Start routine to perform actions
+		// go func(watcher *common.Watcher) {
+		// 	dac := watcher.Events
+		// 	for {
+		// 		select {
+		// 		case data := <-dac:
+		// 			println("------------------")
+		// 			println(data.Times)
+		// 			println(data.Action)
+		// 			println(data.URL)
+		// 			println(data.Payload)
+		// 			println("------------------")
+		// 		case <-time.After(5 * time.Second):
+		// 			println("timeout after 5 sec")
+		// 		}
+		// 	}
+		// }(&config.Watcher)
+		MonitorChanges(jsonConfig, &config.Watcher)
+		if forever == true {
+			for {
+				<-time.After(time.Duration(duration) * time.Second)
+				log.Println("------ Starting Watching check after: ", duration, "second ------")
+				MonitorChanges(jsonConfig, &config.Watcher)
+			}
 		}
+	} else {
+		fmt.Println("Watcher is disabled")
 	}
 }

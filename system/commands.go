@@ -113,13 +113,13 @@ type Apps struct {
 
 // Commands has commands onject
 type Commands struct {
-	Name    string   `json:"name"`
-	Type    string   `json:"type"`
-	Command string   `json:"command"`
-	Unique  string   `json:"unique"`
-	Options []string `json:"options"`
-	Lables  Lables   `json:"labels"`
-	Help    string   `json:"help"`
+	Name    string            `json:"name"`
+	Type    string            `json:"type"`
+	Command string            `json:"command"`
+	Unique  string            `json:"unique"`
+	Options []string          `json:"options"`
+	Lables  map[string]string `json:"labels"`
+	Help    string            `json:"help"`
 }
 
 // Lables has leveles for commands
@@ -209,6 +209,7 @@ func ExternalCommand(jsonConfig JSON, cache *ReturnStruct) {
 		cache.Result = make(map[string]string, 1)
 	}
 	for _, commands := range jsonConfig.Commands {
+		fmt.Println(commands.Lables)
 		name := commands.Name
 		command := commands.Command
 		options := commands.Options
