@@ -23,6 +23,7 @@ Actions: HTTP|SCRIPT is supported
 Types: BOOL|NUMERIC|STRING is supported
 Conditions: EQ|NEQ|GTE|LTE|GT|LT|TRUE|FALSE are supported
 
+```
 
 "watcher": {
     "enable": true,
@@ -113,3 +114,5 @@ Conditions: EQ|NEQ|GTE|LTE|GT|LT|TRUE|FALSE are supported
       }
     ]
   }
+
+```
