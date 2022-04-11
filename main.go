@@ -106,7 +106,7 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 					outputPerTag = ""
 				}
 				if !skip {
-					d += name + `{type="` + commands.Lables["type"] + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + serviceStatus + ``
+					d += name + `{type="` + commands.Type + `",unique="` + commandTagTrimmed + `"` + tag + `} ` + serviceStatus + ``
 					d += "\n"
 				}
 			}
@@ -131,7 +131,7 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 				tag += ","
 				tag += k + `="` + v + `"`
 			}
-			d += name + `{type="` + commands.Lables["type"] + `"` + tag + `} ` + serviceStatus + ``
+			d += name + `{type="` + commands.Type + `"` + tag + `} ` + serviceStatus + ``
 			d += "\n"
 		}
 	}

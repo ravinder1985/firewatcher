@@ -344,7 +344,7 @@ func MonitorChanges(jsonConfig system.JSON, watcher *common.Watcher) {
 // Poll would parse configs and run them every interval.
 func Poll(config *common.Config, forever bool) {
 	jsonConfig := config.JsonConfig
-	if jsonConfig.Watcher.Enable {
+	if jsonConfig.Watcher != nil && jsonConfig.Watcher.Enable {
 		duration := jsonConfig.Watcher.Scrape_interval
 
 		// // Start routine to perform actions
