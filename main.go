@@ -73,7 +73,7 @@ func (CTX *configHandler) metrics(w http.ResponseWriter, r *http.Request) {
 						if commandOutputUpper0 != "RESULT" {
 							if !strings.Contains(commandOutputUpper0, "RESULT") {
 								tagsFromScript := strings.ToLower(commandOutput[0])
-								if strings.Contains(commandOutputUpper0, "TAG_") && strings.Contains(commandOutputUpper0, commandTagUpper) {
+								if strings.Contains(commandOutputUpper0, "TAG_"+commandTagUpper+"_") {
 									tagValues := strings.Replace(commandOutputUpper0, "TAG_"+commandTagUpper+"_", "", 1)
 									tagsFromScript = strings.ToLower(tagValues)
 									tag += ","
